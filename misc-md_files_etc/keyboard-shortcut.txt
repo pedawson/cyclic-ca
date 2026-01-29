@@ -1,0 +1,563 @@
+
+╭─── Claude Code v2.1.15 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│                 Welcome back Paul!                 │ started                 │
+│                                                    │ Ask Claude to create a… │
+│                      ▗ ▗   ▖ ▖                     │ ─────────────────────── │
+│                                                    │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│    Opus 4.5 · Claude Pro · pedawson@gmail.com's    │                         │
+│    Organization                                    │                         │
+│                  ~/Projects/Claude                 │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ /help 
+  ⎿  Help dialog dismissed
+
+❯ /help 
+  ⎿  Help dialog dismissed
+
+❯ lisit all of the keyboard commands by high level grouping 
+
+⏺ claude-code-guide(Find keyboard commands/shortcuts)
+  ⎿  Done (4 tool uses · 28.8k tokens · 33s)
+
+⏺ Here are all Claude Code keyboard commands organized by high-level grouping:
+
+  General Controls
+  ┌───────────────────┬────────────────────────────────────┐
+  │     Shortcut      │            Description             │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+C            │ Cancel current input or generation │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+D            │ Exit Claude Code session           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+L            │ Clear terminal screen              │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+O            │ Toggle verbose output              │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+R            │ Reverse search command history     │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Up/Down           │ Navigate command history           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Left/Right        │ Cycle through dialog tabs          │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Esc + Esc         │ Rewind code/conversation           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Shift+Tab / Alt+M │ Toggle permission modes            │
+  └───────────────────┴────────────────────────────────────┘
+  Text Editing
+  ┌──────────┬──────────────────────────────┐
+  │ Shortcut │         Description          │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+K   │ Delete to end of line        │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+U   │ Delete entire line           │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+Y   │ Paste deleted text           │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+Y    │ Cycle paste history          │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+B    │ Move cursor back one word    │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+F    │ Move cursor forward one word │
+  └──────────┴──────────────────────────────┘
+  Input & Editor Management
+  ┌────────────────┬─────────────────────────────┐
+  │    Shortcut    │         Description         │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+G         │ Open in default text editor │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+V / Cmd+V │ Paste image from clipboard  │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+B         │ Background running tasks    │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+T         │ Toggle task list view       │
+  └────────────────┴─────────────────────────────┘
+  Model & Display Controls
+  ┌──────────────────┬──────────────────────────┐
+  │     Shortcut     │       Description        │
+  ├──────────────────┼──────────────────────────┤
+  │ Alt+P / Option+P │ Switch model             │
+  ├──────────────────┼──────────────────────────┤
+  │ Alt+T / Option+T │ Toggle extended thinking │
+  └──────────────────┴──────────────────────────┘
+  Multiline Input
+  ┌──────────────┬─────────────────────────────────┐
+  │   Shortcut   │           Description           │
+  ├──────────────┼─────────────────────────────────┤
+  │ \ + Enter    │ Quick escape (all terminals)    │
+  ├──────────────┼─────────────────────────────────┤
+  │ Option+Enter │ macOS default                   │
+  ├──────────────┼─────────────────────────────────┤
+  │ Shift+Enter  │ iTerm2, WezTerm, Ghostty, Kitty │
+  ├──────────────┼─────────────────────────────────┤
+  │ Ctrl+J       │ Line feed character             │
+  └──────────────┴─────────────────────────────────┘
+  Quick Prefixes
+  ┌────────┬───────────────────────────────────┐
+  │ Prefix │              Purpose              │
+  ├────────┼───────────────────────────────────┤
+  │ /      │ Command/skill menu                │
+  ├────────┼───────────────────────────────────┤
+  │ !      │ Bash mode (run commands directly) │
+  ├────────┼───────────────────────────────────┤
+  │ @      │ File path autocomplete            │
+  └────────┴───────────────────────────────────┘
+  Vim Mode (after /vim)
+
+  Mode Switching: Esc (normal), i/I/a/A/o/O (insert)
+
+  Navigation: h/j/k/l, w/e/b, 0/$/^, gg/G, f/F/t/T
+
+  Editing: x, dd/D, dw/de/db, cc/C, yy/Y, p/P, >>/<<, J, .
+
+  VS Code Extension
+  ┌────────────────────────────────┬────────────────────────────┐
+  │            Shortcut            │        Description         │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+Esc / Ctrl+Esc             │ Toggle focus to Claude     │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+Shift+Esc / Ctrl+Shift+Esc │ Open in new tab            │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+N / Ctrl+N                 │ New conversation           │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Option+K / Alt+K               │ Insert @-mention reference │
+  └────────────────────────────────┴────────────────────────────┘
+  JetBrains IDEs
+  ┌───────────────────────────┬───────────────────────┐
+  │         Shortcut          │      Description      │
+  ├───────────────────────────┼───────────────────────┤
+  │ Cmd+Esc / Ctrl+Esc        │ Open Claude Code      │
+  ├───────────────────────────┼───────────────────────┤
+  │ Cmd+Option+K / Alt+Ctrl+K │ Insert file reference │
+  └───────────────────────────┴───────────────────────┘
+  Note: macOS users may need to configure their terminal to use Option as Meta
+  key for Alt-based shortcuts.
+
+✻ Churned for 51s
+
+❯ can you use a darker blue in the table. hard to see. 
+
+⏺ I don't have control over the colors used to render markdown in the terminal -
+   those are determined by your terminal's theme settings.
+
+  You can try changing Claude Code's color theme using the /theme command, which
+   might give you better contrast for table elements. Alternatively, you could
+  adjust your terminal emulator's color scheme directly for the blue color
+  values.
+
+❯ /theme 
+  ⎿  Theme set to light
+
+❯ list the output again to see the color now 
+
+⏺ Here are all Claude Code keyboard commands organized by high-level grouping:
+
+  General Controls
+  ┌───────────────────┬────────────────────────────────────┐
+  │     Shortcut      │            Description             │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+C            │ Cancel current input or generation │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+D            │ Exit Claude Code session           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+L            │ Clear terminal screen              │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+O            │ Toggle verbose output              │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+R            │ Reverse search command history     │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Up/Down           │ Navigate command history           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Left/Right        │ Cycle through dialog tabs          │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Esc + Esc         │ Rewind code/conversation           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Shift+Tab / Alt+M │ Toggle permission modes            │
+  └───────────────────┴────────────────────────────────────┘
+  Text Editing
+  ┌──────────┬──────────────────────────────┐
+  │ Shortcut │         Description          │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+K   │ Delete to end of line        │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+U   │ Delete entire line           │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+Y   │ Paste deleted text           │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+Y    │ Cycle paste history          │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+B    │ Move cursor back one word    │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+F    │ Move cursor forward one word │
+  └──────────┴──────────────────────────────┘
+  Input & Editor Management
+  ┌────────────────┬─────────────────────────────┐
+  │    Shortcut    │         Description         │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+G         │ Open in default text editor │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+V / Cmd+V │ Paste image from clipboard  │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+B         │ Background running tasks    │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+T         │ Toggle task list view       │
+  └────────────────┴─────────────────────────────┘
+  Model & Display Controls
+  ┌──────────────────┬──────────────────────────┐
+  │     Shortcut     │       Description        │
+  ├──────────────────┼──────────────────────────┤
+  │ Alt+P / Option+P │ Switch model             │
+  ├──────────────────┼──────────────────────────┤
+  │ Alt+T / Option+T │ Toggle extended thinking │
+  └──────────────────┴──────────────────────────┘
+  Multiline Input
+  ┌──────────────┬─────────────────────────────────┐
+  │   Shortcut   │           Description           │
+  ├──────────────┼─────────────────────────────────┤
+  │ \ + Enter    │ Quick escape (all terminals)    │
+  ├──────────────┼─────────────────────────────────┤
+  │ Option+Enter │ macOS default                   │
+  ├──────────────┼─────────────────────────────────┤
+  │ Shift+Enter  │ iTerm2, WezTerm, Ghostty, Kitty │
+  ├──────────────┼─────────────────────────────────┤
+  │ Ctrl+J       │ Line feed character             │
+  └──────────────┴─────────────────────────────────┘
+  Quick Prefixes
+  ┌────────┬───────────────────────────────────┐
+  │ Prefix │              Purpose              │
+  ├────────┼───────────────────────────────────┤
+  │ /      │ Command/skill menu                │
+  ├────────┼───────────────────────────────────┤
+  │ !      │ Bash mode (run commands directly) │
+  ├────────┼───────────────────────────────────┤
+  │ @      │ File path autocomplete            │
+  └────────┴───────────────────────────────────┘
+  Vim Mode (after /vim)
+
+  Mode Switching: Esc (normal), i/I/a/A/o/O (insert)
+
+  Navigation: h/j/k/l, w/e/b, 0/$/^, gg/G, f/F/t/T
+
+  Editing: x, dd/D, dw/de/db, cc/C, yy/Y, p/P, >>/<<, J, .
+
+  VS Code Extension
+  ┌────────────────────────────────┬────────────────────────────┐
+  │            Shortcut            │        Description         │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+Esc / Ctrl+Esc             │ Toggle focus to Claude     │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+Shift+Esc / Ctrl+Shift+Esc │ Open in new tab            │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+N / Ctrl+N                 │ New conversation           │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Option+K / Alt+K               │ Insert @-mention reference │
+  └────────────────────────────────┴────────────────────────────┘
+  JetBrains IDEs
+  ┌───────────────────────────┬───────────────────────┐
+  │         Shortcut          │      Description      │
+  ├───────────────────────────┼───────────────────────┤
+  │ Cmd+Esc / Ctrl+Esc        │ Open Claude Code      │
+  ├───────────────────────────┼───────────────────────┤
+  │ Cmd+Option+K / Alt+Ctrl+K │ Insert file reference │
+  └───────────────────────────┴───────────────────────┘
+  How does the light theme look?
+
+❯ much better. blue is darker 
+
+⏺ Good to hear the light theme works better for you.
+
+❯ how can i print the output codes 
+
+⏺ Could you clarify what you mean by "output codes"? Are you asking about:
+
+  1. Exit codes - The status code returned by bash commands (e.g., echo $?)
+  2. ANSI color codes - The escape sequences used for terminal colors/formatting
+  3. Something else - Like keycodes or character codes
+
+❯ no i want to copy/paste so that i can print out the cheatsheet] 
+
+⏺ You can use the /export command to save the conversation to a file or
+  clipboard:
+
+  - /export - copies to clipboard
+  - /export cheatsheet.md - saves to a markdown file
+
+  Alternatively, I can write the cheatsheet directly to a file for you:
+
+  /export keyboard-shortcuts.md
+
+  Or if you just want to select and copy from the terminal, most terminals
+  support Cmd+A (select all visible) or click-and-drag selection, then Cmd+C to
+  copy.
+
+  Would you like me to write the cheatsheet to a file you can open and print?
+╭─── Claude Code v2.1.15 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│                 Welcome back Paul!                 │ started                 │
+│                                                    │ Ask Claude to create a… │
+│                      ▗ ▗   ▖ ▖                     │ ─────────────────────── │
+│                                                    │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│    Opus 4.5 · Claude Pro · pedawson@gmail.com's    │                         │
+│    Organization                                    │                         │
+│                  ~/Projects/Claude                 │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ /help 
+  ⎿  Help dialog dismissed
+
+❯ /help 
+  ⎿  Help dialog dismissed
+
+❯ lisit all of the keyboard commands by high level grouping 
+
+⏺ claude-code-guide(Find keyboard commands/shortcuts)
+  ⎿  Done (4 tool uses · 28.8k tokens · 33s)
+
+⏺ Here are all Claude Code keyboard commands organized by high-level grouping:
+
+  General Controls
+  ┌───────────────────┬────────────────────────────────────┐
+  │     Shortcut      │            Description             │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+C            │ Cancel current input or generation │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+D            │ Exit Claude Code session           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+L            │ Clear terminal screen              │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+O            │ Toggle verbose output              │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+R            │ Reverse search command history     │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Up/Down           │ Navigate command history           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Left/Right        │ Cycle through dialog tabs          │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Esc + Esc         │ Rewind code/conversation           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Shift+Tab / Alt+M │ Toggle permission modes            │
+  └───────────────────┴────────────────────────────────────┘
+  Text Editing
+  ┌──────────┬──────────────────────────────┐
+  │ Shortcut │         Description          │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+K   │ Delete to end of line        │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+U   │ Delete entire line           │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+Y   │ Paste deleted text           │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+Y    │ Cycle paste history          │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+B    │ Move cursor back one word    │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+F    │ Move cursor forward one word │
+  └──────────┴──────────────────────────────┘
+  Input & Editor Management
+  ┌────────────────┬─────────────────────────────┐
+  │    Shortcut    │         Description         │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+G         │ Open in default text editor │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+V / Cmd+V │ Paste image from clipboard  │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+B         │ Background running tasks    │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+T         │ Toggle task list view       │
+  └────────────────┴─────────────────────────────┘
+  Model & Display Controls
+  ┌──────────────────┬──────────────────────────┐
+  │     Shortcut     │       Description        │
+  ├──────────────────┼──────────────────────────┤
+  │ Alt+P / Option+P │ Switch model             │
+  ├──────────────────┼──────────────────────────┤
+  │ Alt+T / Option+T │ Toggle extended thinking │
+  └──────────────────┴──────────────────────────┘
+  Multiline Input
+  ┌──────────────┬─────────────────────────────────┐
+  │   Shortcut   │           Description           │
+  ├──────────────┼─────────────────────────────────┤
+  │ \ + Enter    │ Quick escape (all terminals)    │
+  ├──────────────┼─────────────────────────────────┤
+  │ Option+Enter │ macOS default                   │
+  ├──────────────┼─────────────────────────────────┤
+  │ Shift+Enter  │ iTerm2, WezTerm, Ghostty, Kitty │
+  ├──────────────┼─────────────────────────────────┤
+  │ Ctrl+J       │ Line feed character             │
+  └──────────────┴─────────────────────────────────┘
+  Quick Prefixes
+  ┌────────┬───────────────────────────────────┐
+  │ Prefix │              Purpose              │
+  ├────────┼───────────────────────────────────┤
+  │ /      │ Command/skill menu                │
+  ├────────┼───────────────────────────────────┤
+  │ !      │ Bash mode (run commands directly) │
+  ├────────┼───────────────────────────────────┤
+  │ @      │ File path autocomplete            │
+  └────────┴───────────────────────────────────┘
+  Vim Mode (after /vim)
+
+  Mode Switching: Esc (normal), i/I/a/A/o/O (insert)
+
+  Navigation: h/j/k/l, w/e/b, 0/$/^, gg/G, f/F/t/T
+
+  Editing: x, dd/D, dw/de/db, cc/C, yy/Y, p/P, >>/<<, J, .
+
+  VS Code Extension
+  ┌────────────────────────────────┬────────────────────────────┐
+  │            Shortcut            │        Description         │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+Esc / Ctrl+Esc             │ Toggle focus to Claude     │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+Shift+Esc / Ctrl+Shift+Esc │ Open in new tab            │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+N / Ctrl+N                 │ New conversation           │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Option+K / Alt+K               │ Insert @-mention reference │
+  └────────────────────────────────┴────────────────────────────┘
+  JetBrains IDEs
+  ┌───────────────────────────┬───────────────────────┐
+  │         Shortcut          │      Description      │
+  ├───────────────────────────┼───────────────────────┤
+  │ Cmd+Esc / Ctrl+Esc        │ Open Claude Code      │
+  ├───────────────────────────┼───────────────────────┤
+  │ Cmd+Option+K / Alt+Ctrl+K │ Insert file reference │
+  └───────────────────────────┴───────────────────────┘
+  Note: macOS users may need to configure their terminal to use Option as Meta
+  key for Alt-based shortcuts.
+
+✻ Churned for 51s
+
+❯ can you use a darker blue in the table. hard to see. 
+
+⏺ I don't have control over the colors used to render markdown in the terminal -
+   those are determined by your terminal's theme settings.
+
+  You can try changing Claude Code's color theme using the /theme command, which
+   might give you better contrast for table elements. Alternatively, you could
+  adjust your terminal emulator's color scheme directly for the blue color
+  values.
+
+❯ /theme 
+  ⎿  Theme set to light
+
+❯ list the output again to see the color now 
+
+⏺ Here are all Claude Code keyboard commands organized by high-level grouping:
+
+  General Controls
+  ┌───────────────────┬────────────────────────────────────┐
+  │     Shortcut      │            Description             │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+C            │ Cancel current input or generation │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+D            │ Exit Claude Code session           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+L            │ Clear terminal screen              │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+O            │ Toggle verbose output              │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Ctrl+R            │ Reverse search command history     │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Up/Down           │ Navigate command history           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Left/Right        │ Cycle through dialog tabs          │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Esc + Esc         │ Rewind code/conversation           │
+  ├───────────────────┼────────────────────────────────────┤
+  │ Shift+Tab / Alt+M │ Toggle permission modes            │
+  └───────────────────┴────────────────────────────────────┘
+  Text Editing
+  ┌──────────┬──────────────────────────────┐
+  │ Shortcut │         Description          │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+K   │ Delete to end of line        │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+U   │ Delete entire line           │
+  ├──────────┼──────────────────────────────┤
+  │ Ctrl+Y   │ Paste deleted text           │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+Y    │ Cycle paste history          │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+B    │ Move cursor back one word    │
+  ├──────────┼──────────────────────────────┤
+  │ Alt+F    │ Move cursor forward one word │
+  └──────────┴──────────────────────────────┘
+  Input & Editor Management
+  ┌────────────────┬─────────────────────────────┐
+  │    Shortcut    │         Description         │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+G         │ Open in default text editor │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+V / Cmd+V │ Paste image from clipboard  │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+B         │ Background running tasks    │
+  ├────────────────┼─────────────────────────────┤
+  │ Ctrl+T         │ Toggle task list view       │
+  └────────────────┴─────────────────────────────┘
+  Model & Display Controls
+  ┌──────────────────┬──────────────────────────┐
+  │     Shortcut     │       Description        │
+  ├──────────────────┼──────────────────────────┤
+  │ Alt+P / Option+P │ Switch model             │
+  ├──────────────────┼──────────────────────────┤
+  │ Alt+T / Option+T │ Toggle extended thinking │
+  └──────────────────┴──────────────────────────┘
+  Multiline Input
+  ┌──────────────┬─────────────────────────────────┐
+  │   Shortcut   │           Description           │
+  ├──────────────┼─────────────────────────────────┤
+  │ \ + Enter    │ Quick escape (all terminals)    │
+  ├──────────────┼─────────────────────────────────┤
+  │ Option+Enter │ macOS default                   │
+  ├──────────────┼─────────────────────────────────┤
+  │ Shift+Enter  │ iTerm2, WezTerm, Ghostty, Kitty │
+  ├──────────────┼─────────────────────────────────┤
+  │ Ctrl+J       │ Line feed character             │
+  └──────────────┴─────────────────────────────────┘
+  Quick Prefixes
+  ┌────────┬───────────────────────────────────┐
+  │ Prefix │              Purpose              │
+  ├────────┼───────────────────────────────────┤
+  │ /      │ Command/skill menu                │
+  ├────────┼───────────────────────────────────┤
+  │ !      │ Bash mode (run commands directly) │
+  ├────────┼───────────────────────────────────┤
+  │ @      │ File path autocomplete            │
+  └────────┴───────────────────────────────────┘
+  Vim Mode (after /vim)
+
+  Mode Switching: Esc (normal), i/I/a/A/o/O (insert)
+
+  Navigation: h/j/k/l, w/e/b, 0/$/^, gg/G, f/F/t/T
+
+  Editing: x, dd/D, dw/de/db, cc/C, yy/Y, p/P, >>/<<, J, .
+
+  VS Code Extension
+  ┌────────────────────────────────┬────────────────────────────┐
+  │            Shortcut            │        Description         │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+Esc / Ctrl+Esc             │ Toggle focus to Claude     │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+Shift+Esc / Ctrl+Shift+Esc │ Open in new tab            │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Cmd+N / Ctrl+N                 │ New conversation           │
+  ├────────────────────────────────┼────────────────────────────┤
+  │ Option+K / Alt+K               │ Insert @-mention reference │
+  └────────────────────────────────┴────────────────────────────┘
+  JetBrains IDEs
+  ┌───────────────────────────┬───────────────────────┐
+  │         Shortcut          │      Description      │
+  ├───────────────────────────┼───────────────────────┤
+  │ Cmd+Esc / Ctrl+Esc        │ Open Claude Code      │
+  ├───────────────────────────┼───────────────────────┤
+  │ Cmd+Option+K / Alt+Ctrl+K │ Insert file reference │
+  └───────────────────────────┴───────────────────────┘
+
+
+
