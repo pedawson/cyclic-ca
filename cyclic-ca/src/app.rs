@@ -1,8 +1,8 @@
-use crate::ca::{ColorScheme, CyclicCellularAutomata, Neighborhood, Pattern};
+use crate::ca::{ColorScheme, CyclicCellularAutomata, Neighborhood, Pattern, Symmetry};
 use crate::ui;
 use eframe::egui;
 
-// ── Preset ───────────────────────────────────────────────────────────────────
+// ── Preset ────────────────────────────────────────────────────────────────────
 
 #[derive(Clone)]
 pub struct Preset {
@@ -15,6 +15,7 @@ pub struct Preset {
     pub threshold: usize,
     pub speed: f32,
     pub steps_per_frame: usize,
+    pub symmetry: Symmetry,
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
@@ -49,6 +50,9 @@ pub struct CyclicCAApp {
     pub step_counter: u64,
     pub show_step_counter: bool,
 
+    // Symmetry
+    pub symmetry: Symmetry,
+
     // Presets window
     pub presets_open: bool,
     pub presets: Vec<Preset>,
@@ -56,6 +60,10 @@ pub struct CyclicCAApp {
 
     // Export feedback (message + expiry time)
     pub export_message: Option<(String, f64)>,
+
+    // Zoom / pan
+    pub zoom: f32,
+    pub pan: egui::Vec2,
 }
 
 impl Default for CyclicCAApp {
@@ -83,10 +91,13 @@ impl Default for CyclicCAApp {
             steps_per_frame: 1,
             step_counter: 0,
             show_step_counter: true,
+            symmetry: Symmetry::None,
             presets_open: false,
             presets: Vec::new(),
             preset_name_input: String::new(),
             export_message: None,
+            zoom: 1.0,
+            pan: egui::Vec2::ZERO,
         }
     }
 }
@@ -95,6 +106,11 @@ impl CyclicCAApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         crate::theme::load_fonts(&cc.egui_ctx);
         Self::default()
+    }
+
+    pub fn reset_view(&mut self) {
+        self.zoom = 1.0;
+        self.pan = egui::Vec2::ZERO;
     }
 
     fn update_texture(&mut self, ctx: &egui::Context) {
@@ -111,12 +127,9 @@ impl CyclicCAApp {
         let desktop = std::path::Path::new(&home).join("Desktop");
         let filename = format!(
             "CyclicCA_{}x{}_t{}.png",
-            self.ca.width,
-            self.ca.height,
-            self.step_counter
+            self.ca.width, self.ca.height, self.step_counter
         );
         let path = desktop.join(&filename);
-
         let bytes = self.ca.to_rgb_bytes();
         let result = image::save_buffer(
             &path,
@@ -125,7 +138,6 @@ impl CyclicCAApp {
             self.ca.height as u32,
             image::ColorType::Rgb8,
         );
-
         self.export_message = Some(match result {
             Ok(_) => (format!("Saved: {}", filename), now + 4.0),
             Err(e) => (format!("Export failed: {}", e), now + 4.0),
@@ -137,7 +149,6 @@ impl CyclicCAApp {
         if name.is_empty() {
             return;
         }
-        // Replace existing preset with same name
         self.presets.retain(|p| p.name != name);
         self.presets.push(Preset {
             name,
@@ -149,6 +160,7 @@ impl CyclicCAApp {
             threshold: self.ca.threshold,
             speed: self.speed,
             steps_per_frame: self.steps_per_frame,
+            symmetry: self.symmetry,
         });
         self.preset_name_input.clear();
     }
@@ -161,11 +173,13 @@ impl CyclicCAApp {
             self.ca.threshold = p.threshold;
             self.speed = p.speed;
             self.steps_per_frame = p.steps_per_frame;
+            self.symmetry = p.symmetry;
             self.selected_color_scheme = p.color_scheme;
             self.pending_width = p.width;
             self.pending_height = p.height;
             self.pending_types = p.num_types;
             self.step_counter = 0;
+            self.reset_view();
         }
     }
 }
@@ -182,6 +196,7 @@ impl eframe::App for CyclicCAApp {
             if now - self.last_update >= interval {
                 for _ in 0..self.steps_per_frame {
                     self.ca.update();
+                    self.ca.apply_symmetry(self.symmetry);
                     self.step_counter += 1;
                 }
                 self.last_update = now;
@@ -200,7 +215,7 @@ impl eframe::App for CyclicCAApp {
 
         self.update_texture(ctx);
 
-        // ── Sidebar ──────────────────────────────────────────────────────────
+        // ── Sidebar ───────────────────────────────────────────────────────────
         let sidebar_frame = egui::Frame {
             fill: crate::theme::SIDEBAR_BG,
             inner_margin: egui::Margin::symmetric(12.0, 8.0),
@@ -275,7 +290,7 @@ impl eframe::App for CyclicCAApp {
                         size,
                     );
 
-                    // Shadow
+                    // ── Shadow & border ───────────────────────────────────────
                     let painter = ui.painter();
                     for i in 1..=6u8 {
                         let spread = i as f32 * 2.0;
@@ -286,32 +301,104 @@ impl eframe::App for CyclicCAApp {
                             egui::Color32::from_black_alpha(alpha),
                         );
                     }
-                    // Border
                     painter.rect_stroke(
                         image_rect,
                         0.0,
                         egui::Stroke::new(1.5, egui::Color32::from_gray(80)),
                     );
 
-                    ui.allocate_new_ui(
-                        egui::UiBuilder::new().max_rect(image_rect),
-                        |ui| {
-                            ui.image(egui::load::SizedTexture::new(texture.id(), size));
-                        },
+                    // ── Zoom / pan interaction ────────────────────────────────
+                    let response = ui.allocate_rect(image_rect, egui::Sense::click_and_drag());
+
+                    // Pan via drag
+                    if response.dragged() {
+                        self.pan += response.drag_delta();
+                        // Clamp pan
+                        let max_pan = egui::vec2(
+                            size.x * (self.zoom - 1.0) / 2.0,
+                            size.y * (self.zoom - 1.0) / 2.0,
+                        );
+                        self.pan.x = self.pan.x.clamp(-max_pan.x, max_pan.x);
+                        self.pan.y = self.pan.y.clamp(-max_pan.y, max_pan.y);
+                    }
+
+                    // Zoom via scroll wheel
+                    let scroll_delta = ui.input(|i| {
+                        if i.pointer.hover_pos().map_or(false, |p| image_rect.contains(p)) {
+                            i.raw_scroll_delta.y
+                        } else {
+                            0.0
+                        }
+                    });
+                    if scroll_delta != 0.0 {
+                        let factor: f32 = if scroll_delta > 0.0 { 1.12 } else { 1.0 / 1.12 };
+                        let new_zoom = (self.zoom * factor).clamp(1.0, 12.0);
+                        // Zoom toward mouse position
+                        if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                            let center = image_rect.center();
+                            let mouse_offset = mouse_pos - center; // Vec2
+                            let zoom_ratio = new_zoom / self.zoom;
+                            self.pan = mouse_offset * (1.0 - zoom_ratio)
+                                + self.pan * zoom_ratio;
+                        }
+                        self.zoom = new_zoom;
+                        // Re-clamp pan after zoom change
+                        let max_pan = egui::vec2(
+                            size.x * (self.zoom - 1.0) / 2.0,
+                            size.y * (self.zoom - 1.0) / 2.0,
+                        );
+                        self.pan.x = self.pan.x.clamp(-max_pan.x, max_pan.x);
+                        self.pan.y = self.pan.y.clamp(-max_pan.y, max_pan.y);
+                    }
+
+                    // ── Draw texture with UV for zoom/pan ─────────────────────
+                    let uv_w = 1.0 / self.zoom;
+                    let uv_cx = 0.5 - self.pan.x / (size.x * self.zoom);
+                    let uv_cy = 0.5 - self.pan.y / (size.y * self.zoom);
+                    let uv = egui::Rect::from_center_size(
+                        egui::pos2(uv_cx, uv_cy),
+                        egui::vec2(uv_w, uv_w),
+                    );
+                    ui.painter().image(
+                        texture.id(),
+                        image_rect,
+                        uv,
+                        egui::Color32::WHITE,
                     );
 
-                    // Export status message in bottom whitespace
-                    if let Some((msg, _)) = &self.export_message {
-                        let msg_rect = egui::Rect::from_min_size(
-                            ui.min_rect().min + egui::vec2(0.0, available_size.y - bottom_space + 12.0),
-                            egui::vec2(available_size.x, bottom_space - 12.0),
+                    // Zoom level indicator (bottom-right of grid)
+                    if self.zoom > 1.01 {
+                        let zoom_label = format!("{:.1}×", self.zoom);
+                        let label_pos = image_rect.right_bottom() + egui::vec2(-48.0, -20.0);
+                        ui.painter().text(
+                            label_pos,
+                            egui::Align2::CENTER_CENTER,
+                            &zoom_label,
+                            egui::FontId::proportional(13.0),
+                            egui::Color32::from_white_alpha(180),
                         );
-                        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(msg_rect), |ui| {
-                            ui.centered_and_justified(|ui| {
-                                ui.label(egui::RichText::new(msg).small().weak());
-                            });
-                        });
                     }
+
+                    // ── Status bar in bottom whitespace ───────────────────────
+                    let status_rect = egui::Rect::from_min_size(
+                        ui.min_rect().min + egui::vec2(0.0, available_size.y - bottom_space + 12.0),
+                        egui::vec2(available_size.x, bottom_space - 12.0),
+                    );
+                    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(status_rect), |ui| {
+                        ui.centered_and_justified(|ui| {
+                            if let Some((msg, _)) = &self.export_message {
+                                ui.label(egui::RichText::new(msg).small().weak());
+                            } else if self.zoom > 1.01 {
+                                ui.label(
+                                    egui::RichText::new(
+                                        "Scroll to zoom · Drag to pan · Reset View in Options"
+                                    )
+                                    .small()
+                                    .weak(),
+                                );
+                            }
+                        });
+                    });
                 }
             });
 

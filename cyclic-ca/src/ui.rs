@@ -1,5 +1,5 @@
 use crate::app::CyclicCAApp;
-use crate::ca::{ColorScheme, Neighborhood, Pattern};
+use crate::ca::{ColorScheme, Neighborhood, Pattern, Symmetry as CaSymmetry};
 use eframe::egui;
 
 pub fn render_grid_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
@@ -178,10 +178,36 @@ pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
 
             ui.add_space(10.0);
 
+            // Symmetry
+            ui.strong("Symmetry");
+            ui.separator();
+            for sym in CaSymmetry::ALL {
+                if ui.radio(app.symmetry == sym, sym.name()).clicked() {
+                    app.symmetry = sym;
+                    app.ca.apply_symmetry(sym);
+                }
+            }
+            ui.label(
+                egui::RichText::new("Applied after each simulation step")
+                    .small()
+                    .weak(),
+            );
+
+            ui.add_space(10.0);
+
             // Display
             ui.strong("Display");
             ui.separator();
             ui.checkbox(&mut app.show_step_counter, "Show step counter");
+
+            ui.add_space(10.0);
+
+            // View
+            ui.strong("View");
+            ui.separator();
+            if ui.button("Reset Zoom & Pan").clicked() {
+                app.reset_view();
+            }
         });
 
     app.options_open = open;

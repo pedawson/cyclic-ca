@@ -50,6 +50,32 @@ impl Neighborhood {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Symmetry {
+    None,
+    Horizontal,
+    Vertical,
+    FourFold,
+}
+
+impl Symmetry {
+    pub const ALL: [Symmetry; 4] = [
+        Symmetry::None,
+        Symmetry::Horizontal,
+        Symmetry::Vertical,
+        Symmetry::FourFold,
+    ];
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Symmetry::None       => "None",
+            Symmetry::Horizontal => "Horizontal (L=R)",
+            Symmetry::Vertical   => "Vertical (T=B)",
+            Symmetry::FourFold   => "Four-fold (L=R=T=B)",
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Pattern {
     Random,
     Stripes,
@@ -286,6 +312,39 @@ impl CyclicCellularAutomata {
         }
 
         std::mem::swap(&mut self.grid, &mut self.next_grid);
+    }
+
+    /// Mirror the grid according to the chosen symmetry mode.
+    pub fn apply_symmetry(&mut self, sym: Symmetry) {
+        match sym {
+            Symmetry::None => {}
+            Symmetry::Horizontal => {
+                for y in 0..self.height {
+                    for x in 0..self.width / 2 {
+                        let val = self.grid[y][x];
+                        self.grid[y][self.width - 1 - x] = val;
+                    }
+                }
+            }
+            Symmetry::Vertical => {
+                for y in 0..self.height / 2 {
+                    for x in 0..self.width {
+                        let val = self.grid[y][x];
+                        self.grid[self.height - 1 - y][x] = val;
+                    }
+                }
+            }
+            Symmetry::FourFold => {
+                for y in 0..self.height / 2 {
+                    for x in 0..self.width / 2 {
+                        let val = self.grid[y][x];
+                        self.grid[y][self.width - 1 - x] = val;
+                        self.grid[self.height - 1 - y][x] = val;
+                        self.grid[self.height - 1 - y][self.width - 1 - x] = val;
+                    }
+                }
+            }
+        }
     }
 
     /// Returns flat RGB bytes (r,g,b per pixel, row-major) for PNG export.
