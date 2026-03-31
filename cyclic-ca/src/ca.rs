@@ -27,6 +27,29 @@ impl ColorScheme {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Neighborhood {
+    VonNeumann,
+    Moore,
+    Extended,
+}
+
+impl Neighborhood {
+    pub const ALL: [Neighborhood; 3] = [
+        Neighborhood::VonNeumann,
+        Neighborhood::Moore,
+        Neighborhood::Extended,
+    ];
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Neighborhood::VonNeumann => "Von Neumann (4)",
+            Neighborhood::Moore => "Moore (8)",
+            Neighborhood::Extended => "Extended (12)",
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Pattern {
     Random,
     Stripes,
@@ -63,6 +86,8 @@ pub struct CyclicCellularAutomata {
     next_grid: Vec<Vec<usize>>,
     pub color_scheme: ColorScheme,
     colors: Vec<[u8; 3]>,
+    pub neighborhood: Neighborhood,
+    pub threshold: usize,
 }
 
 impl CyclicCellularAutomata {
@@ -80,6 +105,8 @@ impl CyclicCellularAutomata {
             next_grid,
             color_scheme,
             colors,
+            neighborhood: Neighborhood::VonNeumann,
+            threshold: 1,
         };
         ca.apply_pattern(Pattern::Random);
         ca
@@ -93,6 +120,7 @@ impl CyclicCellularAutomata {
         self.next_grid = vec![vec![0; width]; height];
         self.colors = Self::generate_colors(num_types, self.color_scheme);
         self.apply_pattern(Pattern::Random);
+        // neighborhood and threshold are preserved
     }
 
     pub fn set_color_scheme(&mut self, scheme: ColorScheme) {
@@ -184,6 +212,54 @@ impl CyclicCellularAutomata {
         }
     }
 
+    fn get_neighbors(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
+        let w = self.width as i32;
+        let h = self.height as i32;
+        let xi = x as i32;
+        let yi = y as i32;
+
+        match self.neighborhood {
+            Neighborhood::VonNeumann => vec![
+                ((xi - 1).rem_euclid(w) as usize, y),
+                ((xi + 1).rem_euclid(w) as usize, y),
+                (x, (yi - 1).rem_euclid(h) as usize),
+                (x, (yi + 1).rem_euclid(h) as usize),
+            ],
+            Neighborhood::Moore => {
+                let mut neighbors = Vec::with_capacity(8);
+                for dy in -1i32..=1 {
+                    for dx in -1i32..=1 {
+                        if dx == 0 && dy == 0 {
+                            continue;
+                        }
+                        neighbors.push((
+                            (xi + dx).rem_euclid(w) as usize,
+                            (yi + dy).rem_euclid(h) as usize,
+                        ));
+                    }
+                }
+                neighbors
+            }
+            Neighborhood::Extended => {
+                // Cardinal directions at distance 1 and 2, plus diagonals at distance 1 (12 total)
+                let offsets: [(i32, i32); 12] = [
+                    (-1, 0), (1, 0), (0, -1), (0, 1),
+                    (-2, 0), (2, 0), (0, -2), (0, 2),
+                    (-1, -1), (1, -1), (-1, 1), (1, 1),
+                ];
+                offsets
+                    .iter()
+                    .map(|&(dx, dy)| {
+                        (
+                            (xi + dx).rem_euclid(w) as usize,
+                            (yi + dy).rem_euclid(h) as usize,
+                        )
+                    })
+                    .collect()
+            }
+        }
+    }
+
     pub fn update(&mut self) {
         let prey_types: Vec<usize> = (0..self.num_types)
             .map(|i| (i + self.num_types - 1) % self.num_types)
@@ -193,22 +269,19 @@ impl CyclicCellularAutomata {
             for x in 0..self.width {
                 let current_type = self.grid[y][x];
                 let prey_type = prey_types[current_type];
+                let mut prey_count = 0;
 
-                self.next_grid[y][x] = current_type;
-
-                let neighbors = [
-                    ((x + self.width - 1) % self.width, y),
-                    ((x + 1) % self.width, y),
-                    (x, (y + self.height - 1) % self.height),
-                    (x, (y + 1) % self.height),
-                ];
-
-                for &(nx, ny) in &neighbors {
+                for (nx, ny) in self.get_neighbors(x, y) {
                     if self.grid[ny][nx] == prey_type {
-                        self.next_grid[y][x] = prey_type;
-                        break;
+                        prey_count += 1;
                     }
                 }
+
+                self.next_grid[y][x] = if prey_count >= self.threshold {
+                    prey_type
+                } else {
+                    current_type
+                };
             }
         }
 

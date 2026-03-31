@@ -1,5 +1,5 @@
 use crate::app::CyclicCAApp;
-use crate::ca::{ColorScheme, Pattern};
+use crate::ca::{ColorScheme, Neighborhood, Pattern};
 use eframe::egui;
 
 pub fn render_grid_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
@@ -28,6 +28,7 @@ pub fn render_grid_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
             if ui.button("Apply").clicked() {
                 app.ca.resize(app.pending_width, app.pending_height, app.pending_types);
                 app.ca.set_color_scheme(app.selected_color_scheme);
+                app.step_counter = 0;
             }
         });
 }
@@ -59,6 +60,7 @@ pub fn render_patterns_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                 if ui.radio(app.selected_pattern == pattern, pattern.name()).clicked() {
                     app.selected_pattern = pattern;
                     app.ca.apply_pattern(pattern);
+                    app.step_counter = 0;
                 }
             }
         });
@@ -77,17 +79,20 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
 
                 if ui.button("Step").clicked() {
                     app.ca.update();
+                    app.step_counter += 1;
                 }
             });
 
             ui.horizontal(|ui| {
                 if ui.button("Randomize").clicked() {
                     app.ca.randomize();
+                    app.step_counter = 0;
                 }
 
                 if ui.button("Clear").clicked() {
                     app.ca.clear();
                     app.running = false;
+                    app.step_counter = 0;
                 }
             });
 
@@ -105,5 +110,68 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                 "Status: {}",
                 if app.running { "Running" } else { "Stopped" }
             ));
+            if app.show_step_counter {
+                ui.label(format!("Step: {}", app.step_counter));
+            }
         });
+}
+
+pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
+    if !app.options_open {
+        return;
+    }
+
+    let mut open = app.options_open;
+    egui::Window::new("Options")
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(false)
+        .default_width(280.0)
+        .show(ctx, |ui| {
+            // Simulation Rules
+            ui.strong("Simulation Rules");
+            ui.separator();
+
+            ui.label("Neighborhood:");
+            for nb in Neighborhood::ALL {
+                if ui.radio(app.ca.neighborhood == nb, nb.name()).clicked() {
+                    app.ca.neighborhood = nb;
+                }
+            }
+
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                ui.label("Threshold:");
+                ui.add(egui::Slider::new(&mut app.ca.threshold, 1..=8));
+            });
+            ui.label(
+                egui::RichText::new("Min prey neighbors needed to consume a cell")
+                    .small()
+                    .weak(),
+            );
+
+            ui.add_space(10.0);
+
+            // Performance
+            ui.strong("Performance");
+            ui.separator();
+            ui.horizontal(|ui| {
+                ui.label("Steps/frame:");
+                ui.add(egui::Slider::new(&mut app.steps_per_frame, 1..=20));
+            });
+            ui.label(
+                egui::RichText::new("CA steps computed per display frame")
+                    .small()
+                    .weak(),
+            );
+
+            ui.add_space(10.0);
+
+            // Display
+            ui.strong("Display");
+            ui.separator();
+            ui.checkbox(&mut app.show_step_counter, "Show step counter");
+        });
+
+    app.options_open = open;
 }

@@ -25,6 +25,12 @@ pub struct CyclicCAApp {
     pub visual_panel_open: bool,
     pub patterns_panel_open: bool,
     pub simulation_panel_open: bool,
+
+    // Options window
+    pub options_open: bool,
+    pub steps_per_frame: usize,
+    pub step_counter: u64,
+    pub show_step_counter: bool,
 }
 
 impl Default for CyclicCAApp {
@@ -48,12 +54,17 @@ impl Default for CyclicCAApp {
             visual_panel_open: true,
             patterns_panel_open: true,
             simulation_panel_open: true,
+            options_open: false,
+            steps_per_frame: 1,
+            step_counter: 0,
+            show_step_counter: true,
         }
     }
 }
 
 impl CyclicCAApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        crate::theme::load_fonts(&cc.egui_ctx);
         Self::default()
     }
 
@@ -69,13 +80,19 @@ impl CyclicCAApp {
 
 impl eframe::App for CyclicCAApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Re-apply every frame so eframe can't override with the system theme
+        crate::theme::apply_visuals(ctx);
+
         // Update simulation if running, respecting speed setting
         if self.running {
             let now = ctx.input(|i| i.time);
             let interval = 1.0 / self.speed as f64;
 
             if now - self.last_update >= interval {
-                self.ca.update();
+                for _ in 0..self.steps_per_frame {
+                    self.ca.update();
+                    self.step_counter += 1;
+                }
                 self.last_update = now;
             }
             ctx.request_repaint();
@@ -84,13 +101,31 @@ impl eframe::App for CyclicCAApp {
         // Update texture
         self.update_texture(ctx);
 
-        // Left side panel with controls
+        // Sidebar panel — macOS blue-gray background
+        let sidebar_frame = egui::Frame {
+            fill: crate::theme::SIDEBAR_BG,
+            inner_margin: egui::Margin::symmetric(12.0, 8.0),
+            ..Default::default()
+        };
+
         egui::SidePanel::left("controls")
             .resizable(true)
             .default_width(220.0)
+            .frame(sidebar_frame)
             .show(ctx, |ui| {
-                ui.heading("Cyclic CA");
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.heading("Cyclic CA");
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let label = if self.options_open { "Options ▲" } else { "Options ▼" };
+                        if ui.button(label).clicked() {
+                            self.options_open = !self.options_open;
+                        }
+                    });
+                });
+                ui.add_space(2.0);
                 ui.separator();
+                ui.add_space(4.0);
 
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     ui::render_grid_panel(self, ui);
@@ -103,35 +138,47 @@ impl eframe::App for CyclicCAApp {
                 });
             });
 
-        // Central panel with CA visualization
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if let Some(texture) = &self.texture {
-                let available_size = ui.available_size();
-                let aspect_ratio = self.ca.width as f32 / self.ca.height as f32;
+        // Central panel — pure white
+        let content_frame = egui::Frame {
+            fill: crate::theme::CONTENT_BG,
+            ..Default::default()
+        };
 
-                let (display_width, display_height) = if available_size.x / available_size.y > aspect_ratio {
-                    let h = available_size.y;
-                    (h * aspect_ratio, h)
-                } else {
-                    let w = available_size.x;
-                    (w, w / aspect_ratio)
-                };
+        egui::CentralPanel::default()
+            .frame(content_frame)
+            .show(ctx, |ui| {
+                if let Some(texture) = &self.texture {
+                    let available_size = ui.available_size();
+                    let aspect_ratio = self.ca.width as f32 / self.ca.height as f32;
 
-                let size = egui::vec2(display_width, display_height);
-                let offset = egui::vec2(
-                    (available_size.x - display_width) / 2.0,
-                    (available_size.y - display_height) / 2.0,
-                );
+                    let (display_width, display_height) =
+                        if available_size.x / available_size.y > aspect_ratio {
+                            let h = available_size.y;
+                            (h * aspect_ratio, h)
+                        } else {
+                            let w = available_size.x;
+                            (w, w / aspect_ratio)
+                        };
 
-                ui.allocate_new_ui(
-                    egui::UiBuilder::new().max_rect(
-                        egui::Rect::from_min_size(ui.min_rect().min + offset, size)
-                    ),
-                    |ui| {
-                        ui.image(egui::load::SizedTexture::new(texture.id(), size));
-                    },
-                );
-            }
-        });
+                    let size = egui::vec2(display_width, display_height);
+                    let offset = egui::vec2(
+                        (available_size.x - display_width) / 2.0,
+                        (available_size.y - display_height) / 2.0,
+                    );
+
+                    ui.allocate_new_ui(
+                        egui::UiBuilder::new().max_rect(egui::Rect::from_min_size(
+                            ui.min_rect().min + offset,
+                            size,
+                        )),
+                        |ui| {
+                            ui.image(egui::load::SizedTexture::new(texture.id(), size));
+                        },
+                    );
+                }
+            });
+
+        // Options window (floats on top)
+        ui::render_options_window(self, ctx);
     }
 }
