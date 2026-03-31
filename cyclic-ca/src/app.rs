@@ -72,27 +72,25 @@ pub struct CyclicCAApp {
     pub palette_open: bool,
     pub custom_palette: [[u8; 3]; 6],
     pub palette_selected: usize,   // 0-5
-    pub palette_hsv: [f32; 3],     // [hue 0-360, sat 0-1, val 0-1]
     pub palette_hex_input: String,
 }
+
+/// The palette shown when the app first runs (and restored by "Reset to defaults").
+pub const DEFAULT_PALETTE: [[u8; 3]; 6] = [
+    [220,  50,  50],   // red
+    [240, 140,   0],   // amber
+    [200, 220,   0],   // yellow-green
+    [  0, 180, 100],   // teal
+    [  0, 100, 220],   // blue
+    [150,   0, 200],   // violet
+];
 
 impl Default for CyclicCAApp {
     fn default() -> Self {
         let width = 200;
         let height = 200;
         let num_types = 12;
-
-        // Default custom palette — a vivid 6-hue spread
-        let custom_palette: [[u8; 3]; 6] = [
-            [220,  50,  50],   // red
-            [240, 140,   0],   // amber
-            [200, 220,   0],   // yellow-green
-            [  0, 180, 100],   // teal
-            [  0, 100, 220],   // blue
-            [150,   0, 200],   // violet
-        ];
-        let initial_hsv = Self::rgb_to_hsv(custom_palette[0]);
-        let initial_hex = Self::rgb_to_hex(custom_palette[0]);
+        let initial_hex = Self::rgb_to_hex(DEFAULT_PALETTE[0]);
 
         Self {
             ca: CyclicCellularAutomata::new(width, height, num_types),
@@ -128,9 +126,8 @@ impl Default for CyclicCAApp {
             record_since_last: 0,
             record_frames: Vec::new(),
             palette_open: false,
-            custom_palette,
+            custom_palette: DEFAULT_PALETTE,
             palette_selected: 0,
-            palette_hsv: initial_hsv,
             palette_hex_input: initial_hex,
         }
     }
@@ -207,20 +204,14 @@ impl CyclicCAApp {
         self.ca.set_custom_colors(&self.custom_palette);
     }
 
-    /// Select a palette slot and sync the HSV sliders + hex field.
+    /// Select a palette slot and sync the hex field.
     pub fn select_palette_slot(&mut self, slot: usize) {
         self.palette_selected = slot.min(5);
-        self.palette_hsv = Self::rgb_to_hsv(self.custom_palette[self.palette_selected]);
         self.palette_hex_input = Self::rgb_to_hex(self.custom_palette[self.palette_selected]);
     }
 
-    /// Called whenever an HSV slider changes — updates the selected slot.
-    pub fn update_palette_from_hsv(&mut self) {
-        let rgb = Self::hsv_to_rgb(
-            self.palette_hsv[0],
-            self.palette_hsv[1],
-            self.palette_hsv[2],
-        );
+    /// Called by the UI whenever an RGB slider changes — syncs hex and re-applies to CA.
+    pub fn update_palette_from_rgb(&mut self, rgb: [u8; 3]) {
         self.custom_palette[self.palette_selected] = rgb;
         self.palette_hex_input = Self::rgb_to_hex(rgb);
         if self.selected_color_scheme == ColorScheme::Custom {
@@ -232,11 +223,19 @@ impl CyclicCAApp {
     pub fn apply_hex_input(&mut self) {
         if let Some(rgb) = Self::parse_hex(&self.palette_hex_input) {
             self.custom_palette[self.palette_selected] = rgb;
-            self.palette_hsv = Self::rgb_to_hsv(rgb);
             self.palette_hex_input = Self::rgb_to_hex(rgb); // normalise case
             if self.selected_color_scheme == ColorScheme::Custom {
                 self.apply_custom_palette();
             }
+        }
+    }
+
+    /// Restore the six slots to the original startup colours.
+    pub fn reset_palette(&mut self) {
+        self.custom_palette = DEFAULT_PALETTE;
+        self.palette_hex_input = Self::rgb_to_hex(DEFAULT_PALETTE[self.palette_selected]);
+        if self.selected_color_scheme == ColorScheme::Custom {
+            self.apply_custom_palette();
         }
     }
 
@@ -255,8 +254,7 @@ impl CyclicCAApp {
             let v = s0[2] + (s5[2] - s0[2]) * t;
             self.custom_palette[i] = Self::hsv_to_rgb(h, s, v);
         }
-        // Refresh sliders if we modified the selected slot
-        self.palette_hsv = Self::rgb_to_hsv(self.custom_palette[self.palette_selected]);
+        // Refresh hex field for the currently selected slot
         self.palette_hex_input = Self::rgb_to_hex(self.custom_palette[self.palette_selected]);
         if self.selected_color_scheme == ColorScheme::Custom {
             self.apply_custom_palette();

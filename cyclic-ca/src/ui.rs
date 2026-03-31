@@ -498,34 +498,27 @@ pub fn render_palette_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
             );
             ui.add_space(4.0);
 
-            // ── HSV sliders ───────────────────────────────────────────────
-            let mut changed = false;
+            // ── RGB sliders ───────────────────────────────────────────────
+            let slot = app.palette_selected;
+            let mut r = app.custom_palette[slot][0];
+            let mut g = app.custom_palette[slot][1];
+            let mut b = app.custom_palette[slot][2];
 
-            ui.horizontal(|ui| {
-                ui.label("H");
-                if ui.add(
-                    egui::Slider::new(&mut app.palette_hsv[0], 0.0..=360.0)
-                        .suffix("°")
-                        .fixed_decimals(0),
-                ).changed() { changed = true; }
-            });
-            ui.horizontal(|ui| {
-                ui.label("S");
-                if ui.add(
-                    egui::Slider::new(&mut app.palette_hsv[1], 0.0..=1.0)
-                        .fixed_decimals(2),
-                ).changed() { changed = true; }
-            });
-            ui.horizontal(|ui| {
-                ui.label("V");
-                if ui.add(
-                    egui::Slider::new(&mut app.palette_hsv[2], 0.0..=1.0)
-                        .fixed_decimals(2),
-                ).changed() { changed = true; }
-            });
+            let r_ch = ui.horizontal(|ui| {
+                ui.label("R");
+                ui.add(egui::Slider::new(&mut r, 0u8..=255u8)).changed()
+            }).inner;
+            let g_ch = ui.horizontal(|ui| {
+                ui.label("G");
+                ui.add(egui::Slider::new(&mut g, 0u8..=255u8)).changed()
+            }).inner;
+            let b_ch = ui.horizontal(|ui| {
+                ui.label("B");
+                ui.add(egui::Slider::new(&mut b, 0u8..=255u8)).changed()
+            }).inner;
 
-            if changed {
-                app.update_palette_from_hsv();
+            if r_ch || g_ch || b_ch {
+                app.update_palette_from_rgb([r, g, b]);
             }
 
             // ── Hex input ─────────────────────────────────────────────────
@@ -559,12 +552,15 @@ pub fn render_palette_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
                 for &(name, palette) in PALETTE_PRESETS {
                     if ui.button(name).clicked() {
                         app.custom_palette = palette;
-                        // Refresh sliders for whichever slot is selected
                         app.select_palette_slot(app.palette_selected);
                         if app.selected_color_scheme == ColorScheme::Custom {
                             app.apply_custom_palette();
                         }
                     }
+                }
+                ui.add_space(4.0);
+                if ui.button("↺ Reset to defaults").clicked() {
+                    app.reset_palette();
                 }
             });
 
