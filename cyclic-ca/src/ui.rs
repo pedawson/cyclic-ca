@@ -2,15 +2,61 @@ use crate::app::CyclicCAApp;
 use crate::ca::{ColorScheme, Neighborhood, Pattern, Symmetry as CaSymmetry};
 use eframe::egui;
 
-// Aspect ratio presets: (label, width, height)
+// ── Aspect ratio presets ───────────────────────────────────────────────────────
 const ASPECT_PRESETS: &[(&str, usize, usize)] = &[
-    ("Square 200",    200, 200),
-    ("Square 300",    300, 300),
-    ("Wide 320×200",  320, 200),
-    ("Wide 480×270",  480, 270),
+    ("Square 200",       200, 200),
+    ("Square 300",       300, 300),
+    ("Wide 320×200",     320, 200),
+    ("Wide 480×270",     480, 270),
     ("Portrait 200×320", 200, 320),
     ("Portrait 270×480", 270, 480),
 ];
+
+// ── Palette presets ───────────────────────────────────────────────────────────
+const PALETTE_PRESETS: &[(&str, [[u8; 3]; 6])] = &[
+    ("Sunset", [
+        [255,  60,  20],
+        [255, 140,   0],
+        [255, 215,   0],
+        [200,  80, 120],
+        [130,  30, 100],
+        [ 70,  10,  80],
+    ]),
+    ("Arctic", [
+        [240, 250, 255],
+        [180, 220, 240],
+        [ 90, 175, 225],
+        [ 40, 130, 200],
+        [ 15,  75, 160],
+        [  5,  25,  80],
+    ]),
+    ("Neon", [
+        [255,   0, 120],
+        [  0, 230, 255],
+        [120, 255,   0],
+        [255, 225,   0],
+        [255,  80,   0],
+        [180,   0, 255],
+    ]),
+    ("Pastel", [
+        [255, 180, 193],
+        [200, 170, 235],
+        [165, 230, 210],
+        [255, 218, 180],
+        [175, 215, 235],
+        [235, 195, 235],
+    ]),
+    ("Lava", [
+        [ 10,   0,   0],
+        [100,   5,   0],
+        [210,  30,   0],
+        [255, 120,   0],
+        [255, 220,  40],
+        [255, 255, 200],
+    ]),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 pub fn render_grid_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
     egui::CollapsingHeader::new("Grid")
@@ -28,24 +74,25 @@ pub fn render_grid_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                 ui.add(egui::Slider::new(&mut app.pending_height, 50..=500));
             });
 
+            // Clamp types to ≤ 6 while Custom palette is active
+            let max_types: usize = if app.selected_color_scheme == ColorScheme::Custom { 6 } else { 24 };
+            app.pending_types = app.pending_types.min(max_types);
+
             ui.horizontal(|ui| {
                 ui.label("Types:");
-                ui.add(egui::Slider::new(&mut app.pending_types, 3..=24));
+                ui.add(egui::Slider::new(&mut app.pending_types, 3..=max_types));
             });
 
             ui.add_space(4.0);
 
             if ui.button("Apply").clicked() {
-                app.ca.resize(app.pending_width, app.pending_height, app.pending_types);
-                app.ca.set_color_scheme(app.selected_color_scheme);
-                app.step_counter = 0;
+                app.apply_size_change();
             }
 
             ui.add_space(6.0);
             ui.label(egui::RichText::new("Quick Sizes:").small());
             ui.add_space(2.0);
 
-            // Aspect ratio preset buttons — two per row
             let mut chunks = ASPECT_PRESETS.chunks(2);
             while let Some(pair) = chunks.next() {
                 ui.horizontal(|ui| {
@@ -53,9 +100,7 @@ pub fn render_grid_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                         if ui.small_button(label).clicked() {
                             app.pending_width = w;
                             app.pending_height = h;
-                            app.ca.resize(w, h, app.pending_types);
-                            app.ca.set_color_scheme(app.selected_color_scheme);
-                            app.step_counter = 0;
+                            app.apply_size_change();
                         }
                     }
                 });
@@ -71,9 +116,33 @@ pub fn render_visual_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
 
             ui.label("Color Scheme:");
             for scheme in ColorScheme::ALL {
-                if ui.radio(app.selected_color_scheme == scheme, scheme.name()).clicked() {
-                    app.selected_color_scheme = scheme;
-                    app.ca.set_color_scheme(scheme);
+                let clicked = ui.radio(app.selected_color_scheme == scheme, scheme.name()).clicked();
+                if clicked {
+                    if scheme == ColorScheme::Custom {
+                        app.activate_custom_scheme();
+                    } else {
+                        app.selected_color_scheme = scheme;
+                        app.ca.set_color_scheme(scheme);
+                    }
+                }
+            }
+
+            if app.selected_color_scheme == ColorScheme::Custom {
+                ui.add_space(4.0);
+                // Mini swatch row as a quick preview
+                ui.horizontal(|ui| {
+                    for i in 0..6 {
+                        let [r, g, b] = app.custom_palette[i];
+                        let (rect, _) = ui.allocate_exact_size(
+                            egui::vec2(18.0, 18.0),
+                            egui::Sense::hover(),
+                        );
+                        ui.painter().rect_filled(rect, 3.0, egui::Color32::from_rgb(r, g, b));
+                    }
+                });
+                ui.add_space(2.0);
+                if ui.button("✏ Edit Palette…").clicked() {
+                    app.palette_open = true;
                 }
             }
         });
@@ -102,7 +171,7 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
         .show(ui, |ui| {
             app.simulation_panel_open = true;
 
-            // ── Playback controls ─────────────────────────────────────────────
+            // Playback controls
             ui.horizontal(|ui| {
                 if ui.button(if app.running { "⏹ Stop" } else { "▶ Start" }).clicked() {
                     app.running = !app.running;
@@ -112,7 +181,6 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                     app.step_counter += 1;
                 }
             });
-
             ui.horizontal(|ui| {
                 if ui.button("🔀 Randomize").clicked() {
                     app.ca.randomize();
@@ -126,16 +194,12 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
             });
 
             ui.add_space(4.0);
-
-            // Export PNG
             if ui.button("📷 Export PNG").clicked() {
                 let now = ui.input(|i| i.time);
                 app.export_png(now);
             }
 
             ui.add_space(8.0);
-
-            // Speed slider
             ui.horizontal(|ui| {
                 ui.label("Speed:");
                 ui.add(
@@ -148,17 +212,14 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
             ui.add_space(4.0);
             ui.label(format!("Grid: {}×{}", app.ca.width, app.ca.height));
             ui.label(format!("Types: {}", app.ca.num_types));
-            ui.label(format!(
-                "Status: {}",
-                if app.running { "Running" } else { "Stopped" }
-            ));
+            ui.label(format!("Status: {}", if app.running { "Running" } else { "Stopped" }));
             if app.show_step_counter {
                 ui.label(format!("Step: {}", app.step_counter));
             }
 
             ui.add_space(8.0);
 
-            // ── Save / Load state ─────────────────────────────────────────────
+            // Save / Load
             ui.separator();
             ui.strong("Save / Load State");
             ui.horizontal(|ui| {
@@ -172,19 +233,15 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                 }
             });
             ui.label(
-                egui::RichText::new("Saves/loads to Desktop/CyclicCA_state.ccas")
-                    .small()
-                    .weak(),
+                egui::RichText::new("Desktop/CyclicCA_state.ccas").small().weak(),
             );
 
             ui.add_space(8.0);
 
-            // ── Auto-stop ─────────────────────────────────────────────────────
+            // Auto-stop
             ui.separator();
             ui.strong("Auto-Stop");
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut app.auto_stop_enabled, "Enabled");
-            });
+            ui.checkbox(&mut app.auto_stop_enabled, "Enabled");
             if app.auto_stop_enabled {
                 ui.horizontal(|ui| {
                     ui.label("Stop at step:");
@@ -195,41 +252,24 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                     );
                 });
                 if app.step_counter > 0 {
-                    let remaining = if app.auto_stop_steps > app.step_counter {
-                        app.auto_stop_steps - app.step_counter
-                    } else {
-                        0
-                    };
-                    ui.label(
-                        egui::RichText::new(format!("{} steps remaining", remaining))
-                            .small()
-                            .weak(),
-                    );
+                    let rem = app.auto_stop_steps.saturating_sub(app.step_counter);
+                    ui.label(egui::RichText::new(format!("{} steps remaining", rem)).small().weak());
                 }
             }
 
             ui.add_space(8.0);
 
-            // ── GIF Recording ─────────────────────────────────────────────────
+            // GIF recording
             ui.separator();
             ui.strong("GIF Export");
-
             if !app.recording {
                 ui.horizontal(|ui| {
                     ui.label("Frames:");
-                    ui.add(
-                        egui::DragValue::new(&mut app.record_frame_target)
-                            .speed(1.0)
-                            .range(4..=500),
-                    );
+                    ui.add(egui::DragValue::new(&mut app.record_frame_target).speed(1.0).range(4..=500));
                 });
                 ui.horizontal(|ui| {
                     ui.label("Capture every:");
-                    ui.add(
-                        egui::DragValue::new(&mut app.record_capture_every)
-                            .speed(1.0)
-                            .range(1..=60),
-                    );
+                    ui.add(egui::DragValue::new(&mut app.record_capture_every).speed(1.0).range(1..=60));
                     ui.label("steps");
                 });
                 ui.label(
@@ -237,21 +277,17 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                         "≈{:.0}s of simulation",
                         app.record_frame_target as f32 * app.record_capture_every as f32 / app.speed
                     ))
-                    .small()
-                    .weak(),
+                    .small().weak(),
                 );
                 ui.add_space(4.0);
-                let can_record = app.running || true; // always allow
-                if ui.add_enabled(can_record, egui::Button::new("⏺ Start Recording")).clicked() {
+                if ui.button("⏺ Start Recording").clicked() {
                     app.start_recording();
-                    if !app.running {
-                        app.running = true;
-                    }
+                    if !app.running { app.running = true; }
                 }
             } else {
                 ui.label(
                     egui::RichText::new(format!(
-                        "⏺ {}/{} frames captured",
+                        "⏺ {}/{} frames",
                         app.record_frames.len(),
                         app.record_frame_target,
                     ))
@@ -265,10 +301,10 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
         });
 }
 
+// ── Options window ────────────────────────────────────────────────────────────
+
 pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
-    if !app.options_open {
-        return;
-    }
+    if !app.options_open { return; }
 
     let mut open = app.options_open;
     egui::Window::new("Options")
@@ -277,17 +313,14 @@ pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
         .resizable(false)
         .default_width(280.0)
         .show(ctx, |ui| {
-            // Simulation Rules
             ui.strong("Simulation Rules");
             ui.separator();
-
             ui.label("Neighborhood:");
             for nb in Neighborhood::ALL {
                 if ui.radio(app.ca.neighborhood == nb, nb.name()).clicked() {
                     app.ca.neighborhood = nb;
                 }
             }
-
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 ui.label("Threshold:");
@@ -295,13 +328,10 @@ pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
             });
             ui.label(
                 egui::RichText::new("Min prey neighbors needed to consume a cell")
-                    .small()
-                    .weak(),
+                    .small().weak(),
             );
 
             ui.add_space(10.0);
-
-            // Performance
             ui.strong("Performance");
             ui.separator();
             ui.horizontal(|ui| {
@@ -310,13 +340,10 @@ pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
             });
             ui.label(
                 egui::RichText::new("CA steps computed per display frame")
-                    .small()
-                    .weak(),
+                    .small().weak(),
             );
 
             ui.add_space(10.0);
-
-            // Symmetry
             ui.strong("Symmetry");
             ui.separator();
             for sym in CaSymmetry::ALL {
@@ -327,20 +354,15 @@ pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
             }
             ui.label(
                 egui::RichText::new("Applied after each simulation step")
-                    .small()
-                    .weak(),
+                    .small().weak(),
             );
 
             ui.add_space(10.0);
-
-            // Display
             ui.strong("Display");
             ui.separator();
             ui.checkbox(&mut app.show_step_counter, "Show step counter");
 
             ui.add_space(10.0);
-
-            // View
             ui.strong("View");
             ui.separator();
             if ui.button("Reset Zoom & Pan").clicked() {
@@ -351,10 +373,10 @@ pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
     app.options_open = open;
 }
 
+// ── Presets window ────────────────────────────────────────────────────────────
+
 pub fn render_presets_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
-    if !app.presets_open {
-        return;
-    }
+    if !app.presets_open { return; }
 
     let mut open = app.presets_open;
     egui::Window::new("Presets")
@@ -363,7 +385,6 @@ pub fn render_presets_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
         .resizable(false)
         .default_width(300.0)
         .show(ctx, |ui| {
-            // Save current settings as a named preset
             ui.strong("Save Current Settings");
             ui.separator();
             ui.horizontal(|ui| {
@@ -377,8 +398,6 @@ pub fn render_presets_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
             }
 
             ui.add_space(12.0);
-
-            // List of saved presets
             ui.strong("Saved Presets");
             ui.separator();
 
@@ -393,38 +412,189 @@ pub fn render_presets_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
                         ui.horizontal(|ui| {
                             ui.label(egui::RichText::new(&preset.name).strong());
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                if ui.small_button("✕").clicked() {
-                                    to_delete = Some(i);
-                                }
-                                if ui.small_button("Load").clicked() {
-                                    to_load = Some(i);
-                                }
+                                if ui.small_button("✕").clicked() { to_delete = Some(i); }
+                                if ui.small_button("Load").clicked() { to_load = Some(i); }
                             });
                         });
                         ui.label(
                             egui::RichText::new(format!(
                                 "{}×{} · {} types · {} · {:.2}fps",
-                                preset.width,
-                                preset.height,
-                                preset.num_types,
-                                preset.color_scheme.name(),
-                                preset.speed,
+                                preset.width, preset.height, preset.num_types,
+                                preset.color_scheme.name(), preset.speed,
                             ))
-                            .small()
-                            .weak(),
+                            .small().weak(),
                         );
                         ui.separator();
                     }
                 });
 
-                if let Some(i) = to_load {
-                    app.load_preset(i);
-                }
-                if let Some(i) = to_delete {
-                    app.presets.remove(i);
-                }
+                if let Some(i) = to_load { app.load_preset(i); }
+                if let Some(i) = to_delete { app.presets.remove(i); }
             }
         });
 
     app.presets_open = open;
+}
+
+// ── Custom Palette window ─────────────────────────────────────────────────────
+
+pub fn render_palette_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
+    if !app.palette_open { return; }
+
+    let mut open = app.palette_open;
+    egui::Window::new("Custom Palette")
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(false)
+        .default_width(330.0)
+        .show(ctx, |ui| {
+            // ── Row of 6 colour swatches ───────────────────────────────────
+            ui.horizontal(|ui| {
+                ui.add_space(4.0);
+                for i in 0..6usize {
+                    let [r, g, b] = app.custom_palette[i];
+                    let swatch_color = egui::Color32::from_rgb(r, g, b);
+                    let (rect, response) = ui.allocate_exact_size(
+                        egui::vec2(42.0, 42.0),
+                        egui::Sense::click(),
+                    );
+                    let painter = ui.painter();
+                    painter.rect_filled(rect, 6.0, swatch_color);
+
+                    // Slot number (1-based)
+                    let label_color = if r as u32 + g as u32 + b as u32 > 380 {
+                        egui::Color32::from_black_alpha(160)
+                    } else {
+                        egui::Color32::from_white_alpha(200)
+                    };
+                    painter.text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        format!("{}", i + 1),
+                        egui::FontId::proportional(13.0),
+                        label_color,
+                    );
+
+                    // Selection ring
+                    if i == app.palette_selected {
+                        painter.rect_stroke(rect, 6.0, egui::Stroke::new(2.5, egui::Color32::WHITE));
+                        painter.rect_stroke(rect.expand(2.5), 7.0, egui::Stroke::new(1.0, egui::Color32::from_gray(30)));
+                    } else if response.hovered() {
+                        painter.rect_stroke(rect, 6.0, egui::Stroke::new(1.5, egui::Color32::from_gray(200)));
+                    }
+
+                    if response.clicked() {
+                        app.select_palette_slot(i);
+                    }
+
+                    if i < 5 { ui.add_space(4.0); }
+                }
+            });
+
+            ui.add_space(10.0);
+            ui.label(
+                egui::RichText::new(format!("Editing slot {}", app.palette_selected + 1))
+                    .small().weak(),
+            );
+            ui.add_space(4.0);
+
+            // ── HSV sliders ───────────────────────────────────────────────
+            let mut changed = false;
+
+            ui.horizontal(|ui| {
+                ui.label("H");
+                if ui.add(
+                    egui::Slider::new(&mut app.palette_hsv[0], 0.0..=360.0)
+                        .suffix("°")
+                        .fixed_decimals(0),
+                ).changed() { changed = true; }
+            });
+            ui.horizontal(|ui| {
+                ui.label("S");
+                if ui.add(
+                    egui::Slider::new(&mut app.palette_hsv[1], 0.0..=1.0)
+                        .fixed_decimals(2),
+                ).changed() { changed = true; }
+            });
+            ui.horizontal(|ui| {
+                ui.label("V");
+                if ui.add(
+                    egui::Slider::new(&mut app.palette_hsv[2], 0.0..=1.0)
+                        .fixed_decimals(2),
+                ).changed() { changed = true; }
+            });
+
+            if changed {
+                app.update_palette_from_hsv();
+            }
+
+            // ── Hex input ─────────────────────────────────────────────────
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                ui.label("Hex #");
+                let resp = ui.add(
+                    egui::TextEdit::singleline(&mut app.palette_hex_input)
+                        .desired_width(72.0)
+                        .font(egui::TextStyle::Monospace),
+                );
+                // Show validity indicator
+                let valid = crate::app::CyclicCAApp::parse_hex(&app.palette_hex_input).is_some();
+                if !valid && !app.palette_hex_input.is_empty() {
+                    ui.label(egui::RichText::new("✗").color(egui::Color32::from_rgb(220, 60, 60)));
+                }
+                if ui.button("Apply").clicked()
+                    || (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                {
+                    app.apply_hex_input();
+                }
+            });
+
+            ui.add_space(12.0);
+
+            // ── Preset palettes ───────────────────────────────────────────
+            ui.separator();
+            ui.strong("Presets");
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|ui| {
+                for &(name, palette) in PALETTE_PRESETS {
+                    if ui.button(name).clicked() {
+                        app.custom_palette = palette;
+                        // Refresh sliders for whichever slot is selected
+                        app.select_palette_slot(app.palette_selected);
+                        if app.selected_color_scheme == ColorScheme::Custom {
+                            app.apply_custom_palette();
+                        }
+                    }
+                }
+            });
+
+            ui.add_space(8.0);
+
+            // ── Gradient fill ─────────────────────────────────────────────
+            ui.separator();
+            ui.horizontal(|ui| {
+                if ui.button("⟷ Gradient  1 → 6").clicked() {
+                    app.interpolate_palette();
+                }
+                ui.label(
+                    egui::RichText::new("fills slots 2–5")
+                        .small().weak(),
+                );
+            });
+
+            ui.add_space(6.0);
+
+            // ── Activate button ───────────────────────────────────────────
+            let is_active = app.selected_color_scheme == ColorScheme::Custom;
+            if is_active {
+                ui.label(egui::RichText::new("✔ Active — CA is using this palette").small()
+                    .color(egui::Color32::from_rgb(80, 200, 120)));
+            } else {
+                if ui.button("Use this palette").clicked() {
+                    app.activate_custom_scheme();
+                }
+            }
+        });
+
+    app.palette_open = open;
 }

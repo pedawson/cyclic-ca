@@ -67,6 +67,13 @@ pub struct CyclicCAApp {
     pub record_capture_every: usize,
     pub record_since_last: usize,
     pub record_frames: Vec<Vec<u8>>,
+
+    // Custom palette editor
+    pub palette_open: bool,
+    pub custom_palette: [[u8; 3]; 6],
+    pub palette_selected: usize,   // 0-5
+    pub palette_hsv: [f32; 3],     // [hue 0-360, sat 0-1, val 0-1]
+    pub palette_hex_input: String,
 }
 
 impl Default for CyclicCAApp {
@@ -74,6 +81,19 @@ impl Default for CyclicCAApp {
         let width = 200;
         let height = 200;
         let num_types = 12;
+
+        // Default custom palette — a vivid 6-hue spread
+        let custom_palette: [[u8; 3]; 6] = [
+            [220,  50,  50],   // red
+            [240, 140,   0],   // amber
+            [200, 220,   0],   // yellow-green
+            [  0, 180, 100],   // teal
+            [  0, 100, 220],   // blue
+            [150,   0, 200],   // violet
+        ];
+        let initial_hsv = Self::rgb_to_hsv(custom_palette[0]);
+        let initial_hex = Self::rgb_to_hex(custom_palette[0]);
+
         Self {
             ca: CyclicCellularAutomata::new(width, height, num_types),
             running: false,
@@ -107,6 +127,11 @@ impl Default for CyclicCAApp {
             record_capture_every: 1,
             record_since_last: 0,
             record_frames: Vec::new(),
+            palette_open: false,
+            custom_palette,
+            palette_selected: 0,
+            palette_hsv: initial_hsv,
+            palette_hex_input: initial_hex,
         }
     }
 }
@@ -115,6 +140,149 @@ impl CyclicCAApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         crate::theme::load_fonts(&cc.egui_ctx);
         Self::default()
+    }
+
+    // ── Colour math helpers (static) ──────────────────────────────────────────
+
+    /// h: 0–360, s/v: 0–1  →  [r, g, b] each 0–255
+    pub fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [u8; 3] {
+        let c = v * s;
+        let h6 = h / 60.0;
+        let x = c * (1.0 - ((h6 % 2.0) - 1.0).abs());
+        let m = v - c;
+        let (r, g, b) = match h6 as u32 {
+            0 => (c, x, 0.0),
+            1 => (x, c, 0.0),
+            2 => (0.0, c, x),
+            3 => (0.0, x, c),
+            4 => (x, 0.0, c),
+            _ => (c, 0.0, x),
+        };
+        [
+            ((r + m) * 255.0).round().clamp(0.0, 255.0) as u8,
+            ((g + m) * 255.0).round().clamp(0.0, 255.0) as u8,
+            ((b + m) * 255.0).round().clamp(0.0, 255.0) as u8,
+        ]
+    }
+
+    /// [r, g, b] each 0–255  →  [h 0–360, s 0–1, v 0–1]
+    pub fn rgb_to_hsv(rgb: [u8; 3]) -> [f32; 3] {
+        let r = rgb[0] as f32 / 255.0;
+        let g = rgb[1] as f32 / 255.0;
+        let b = rgb[2] as f32 / 255.0;
+        let max = r.max(g.max(b));
+        let min = r.min(g.min(b));
+        let delta = max - min;
+        let v = max;
+        let s = if max > 1e-6 { delta / max } else { 0.0 };
+        let h = if delta < 1e-6 {
+            0.0
+        } else if (max - r).abs() < 1e-6 {
+            60.0 * ((g - b) / delta).rem_euclid(6.0)
+        } else if (max - g).abs() < 1e-6 {
+            60.0 * ((b - r) / delta + 2.0)
+        } else {
+            60.0 * ((r - g) / delta + 4.0)
+        };
+        [h, s, v]
+    }
+
+    pub fn rgb_to_hex(rgb: [u8; 3]) -> String {
+        format!("{:02X}{:02X}{:02X}", rgb[0], rgb[1], rgb[2])
+    }
+
+    pub fn parse_hex(s: &str) -> Option<[u8; 3]> {
+        let s = s.trim().trim_start_matches('#');
+        if s.len() != 6 { return None; }
+        let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+        let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+        let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+        Some([r, g, b])
+    }
+
+    // ── Custom palette operations ─────────────────────────────────────────────
+
+    /// Push custom_palette into the CA colours.
+    pub fn apply_custom_palette(&mut self) {
+        self.ca.set_custom_colors(&self.custom_palette);
+    }
+
+    /// Select a palette slot and sync the HSV sliders + hex field.
+    pub fn select_palette_slot(&mut self, slot: usize) {
+        self.palette_selected = slot.min(5);
+        self.palette_hsv = Self::rgb_to_hsv(self.custom_palette[self.palette_selected]);
+        self.palette_hex_input = Self::rgb_to_hex(self.custom_palette[self.palette_selected]);
+    }
+
+    /// Called whenever an HSV slider changes — updates the selected slot.
+    pub fn update_palette_from_hsv(&mut self) {
+        let rgb = Self::hsv_to_rgb(
+            self.palette_hsv[0],
+            self.palette_hsv[1],
+            self.palette_hsv[2],
+        );
+        self.custom_palette[self.palette_selected] = rgb;
+        self.palette_hex_input = Self::rgb_to_hex(rgb);
+        if self.selected_color_scheme == ColorScheme::Custom {
+            self.apply_custom_palette();
+        }
+    }
+
+    /// Parse the hex field and apply it to the selected slot.
+    pub fn apply_hex_input(&mut self) {
+        if let Some(rgb) = Self::parse_hex(&self.palette_hex_input) {
+            self.custom_palette[self.palette_selected] = rgb;
+            self.palette_hsv = Self::rgb_to_hsv(rgb);
+            self.palette_hex_input = Self::rgb_to_hex(rgb); // normalise case
+            if self.selected_color_scheme == ColorScheme::Custom {
+                self.apply_custom_palette();
+            }
+        }
+    }
+
+    /// Fill slots 1-4 by interpolating (in HSV, shortest-path hue) between slot 0 and slot 5.
+    pub fn interpolate_palette(&mut self) {
+        let s0 = Self::rgb_to_hsv(self.custom_palette[0]);
+        let s5 = Self::rgb_to_hsv(self.custom_palette[5]);
+        for i in 1usize..5 {
+            let t = i as f32 / 5.0;
+            // Shortest angular path for hue
+            let mut dh = s5[0] - s0[0];
+            if dh > 180.0  { dh -= 360.0; }
+            if dh < -180.0 { dh += 360.0; }
+            let h = (s0[0] + dh * t).rem_euclid(360.0);
+            let s = s0[1] + (s5[1] - s0[1]) * t;
+            let v = s0[2] + (s5[2] - s0[2]) * t;
+            self.custom_palette[i] = Self::hsv_to_rgb(h, s, v);
+        }
+        // Refresh sliders if we modified the selected slot
+        self.palette_hsv = Self::rgb_to_hsv(self.custom_palette[self.palette_selected]);
+        self.palette_hex_input = Self::rgb_to_hex(self.custom_palette[self.palette_selected]);
+        if self.selected_color_scheme == ColorScheme::Custom {
+            self.apply_custom_palette();
+        }
+    }
+
+    /// Switch to Custom scheme, clamping num_types to ≤ 6.
+    pub fn activate_custom_scheme(&mut self) {
+        self.selected_color_scheme = ColorScheme::Custom;
+        if self.ca.num_types > 6 {
+            let (w, h) = (self.ca.width, self.ca.height);
+            self.ca.resize(w, h, 6);
+            self.pending_types = 6;
+        }
+        self.apply_custom_palette();
+    }
+
+    /// Resize the CA and re-apply the colour scheme (handles Custom correctly).
+    pub fn apply_size_change(&mut self) {
+        self.ca.resize(self.pending_width, self.pending_height, self.pending_types);
+        if self.selected_color_scheme == ColorScheme::Custom {
+            self.apply_custom_palette();
+        } else {
+            self.ca.set_color_scheme(self.selected_color_scheme);
+        }
+        self.step_counter = 0;
     }
 
     pub fn reset_view(&mut self) {
@@ -518,5 +686,6 @@ impl eframe::App for CyclicCAApp {
 
         ui::render_options_window(self, ctx);
         ui::render_presets_window(self, ctx);
+        ui::render_palette_window(self, ctx);
     }
 }

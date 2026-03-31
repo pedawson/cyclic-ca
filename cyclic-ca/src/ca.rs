@@ -6,22 +6,25 @@ pub enum ColorScheme {
     Ocean,
     Fire,
     Grayscale,
+    Custom,
 }
 
 impl ColorScheme {
-    pub const ALL: [ColorScheme; 4] = [
+    pub const ALL: [ColorScheme; 5] = [
         ColorScheme::Rainbow,
         ColorScheme::Ocean,
         ColorScheme::Fire,
         ColorScheme::Grayscale,
+        ColorScheme::Custom,
     ];
 
     pub fn name(&self) -> &'static str {
         match self {
-            ColorScheme::Rainbow => "Rainbow",
-            ColorScheme::Ocean => "Ocean",
-            ColorScheme::Fire => "Fire",
+            ColorScheme::Rainbow   => "Rainbow",
+            ColorScheme::Ocean     => "Ocean",
+            ColorScheme::Fire      => "Fire",
             ColorScheme::Grayscale => "Grayscale",
+            ColorScheme::Custom    => "Custom",
         }
     }
 
@@ -31,6 +34,7 @@ impl ColorScheme {
             ColorScheme::Ocean     => 1,
             ColorScheme::Fire      => 2,
             ColorScheme::Grayscale => 3,
+            ColorScheme::Custom    => 4,
         }
     }
 
@@ -39,6 +43,7 @@ impl ColorScheme {
             1 => ColorScheme::Ocean,
             2 => ColorScheme::Fire,
             3 => ColorScheme::Grayscale,
+            4 => ColorScheme::Custom,
             _ => ColorScheme::Rainbow,
         }
     }
@@ -203,7 +208,16 @@ impl CyclicCellularAutomata {
 
     pub fn set_color_scheme(&mut self, scheme: ColorScheme) {
         self.color_scheme = scheme;
-        self.colors = Self::generate_colors(self.num_types, scheme);
+        // Custom colours must be applied separately via set_custom_colors().
+        if scheme != ColorScheme::Custom {
+            self.colors = Self::generate_colors(self.num_types, scheme);
+        }
+    }
+
+    /// Override colours with a custom 6-slot palette, cycling for any num_types.
+    pub fn set_custom_colors(&mut self, palette: &[[u8; 3]; 6]) {
+        self.color_scheme = ColorScheme::Custom;
+        self.colors = (0..self.num_types).map(|i| palette[i % 6]).collect();
     }
 
     fn generate_colors(num_types: usize, scheme: ColorScheme) -> Vec<[u8; 3]> {
@@ -244,6 +258,11 @@ impl CyclicCellularAutomata {
                     }
                     ColorScheme::Grayscale => {
                         let v = (t * 255.0) as u8;
+                        [v, v, v]
+                    }
+                    // Custom colours are set via set_custom_colors(); this is a placeholder.
+                    ColorScheme::Custom => {
+                        let v = (t * 200.0) as u8 + 28;
                         [v, v, v]
                     }
                 }
