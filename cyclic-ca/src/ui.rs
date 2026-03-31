@@ -2,6 +2,16 @@ use crate::app::CyclicCAApp;
 use crate::ca::{ColorScheme, Neighborhood, Pattern, Symmetry as CaSymmetry};
 use eframe::egui;
 
+// Aspect ratio presets: (label, width, height)
+const ASPECT_PRESETS: &[(&str, usize, usize)] = &[
+    ("Square 200",    200, 200),
+    ("Square 300",    300, 300),
+    ("Wide 320×200",  320, 200),
+    ("Wide 480×270",  480, 270),
+    ("Portrait 200×320", 200, 320),
+    ("Portrait 270×480", 270, 480),
+];
+
 pub fn render_grid_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
     egui::CollapsingHeader::new("Grid")
         .default_open(app.grid_panel_open)
@@ -23,12 +33,32 @@ pub fn render_grid_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                 ui.add(egui::Slider::new(&mut app.pending_types, 3..=24));
             });
 
-            ui.add_space(8.0);
+            ui.add_space(4.0);
 
             if ui.button("Apply").clicked() {
                 app.ca.resize(app.pending_width, app.pending_height, app.pending_types);
                 app.ca.set_color_scheme(app.selected_color_scheme);
                 app.step_counter = 0;
+            }
+
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new("Quick Sizes:").small());
+            ui.add_space(2.0);
+
+            // Aspect ratio preset buttons — two per row
+            let mut chunks = ASPECT_PRESETS.chunks(2);
+            while let Some(pair) = chunks.next() {
+                ui.horizontal(|ui| {
+                    for &(label, w, h) in pair {
+                        if ui.small_button(label).clicked() {
+                            app.pending_width = w;
+                            app.pending_height = h;
+                            app.ca.resize(w, h, app.pending_types);
+                            app.ca.set_color_scheme(app.selected_color_scheme);
+                            app.step_counter = 0;
+                        }
+                    }
+                });
             }
         });
 }
@@ -72,22 +102,23 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
         .show(ui, |ui| {
             app.simulation_panel_open = true;
 
+            // ── Playback controls ─────────────────────────────────────────────
             ui.horizontal(|ui| {
-                if ui.button(if app.running { "Stop" } else { "Start" }).clicked() {
+                if ui.button(if app.running { "⏹ Stop" } else { "▶ Start" }).clicked() {
                     app.running = !app.running;
                 }
-                if ui.button("Step").clicked() {
+                if ui.button("⏭ Step").clicked() {
                     app.ca.update();
                     app.step_counter += 1;
                 }
             });
 
             ui.horizontal(|ui| {
-                if ui.button("Randomize").clicked() {
+                if ui.button("🔀 Randomize").clicked() {
                     app.ca.randomize();
                     app.step_counter = 0;
                 }
-                if ui.button("Clear").clicked() {
+                if ui.button("🗑 Clear").clicked() {
                     app.ca.clear();
                     app.running = false;
                     app.step_counter = 0;
@@ -96,7 +127,7 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
 
             ui.add_space(4.0);
 
-            // Export button
+            // Export PNG
             if ui.button("📷 Export PNG").clicked() {
                 let now = ui.input(|i| i.time);
                 app.export_png(now);
@@ -104,7 +135,7 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
 
             ui.add_space(8.0);
 
-            // Extended speed range: 0.25 → 120 fps
+            // Speed slider
             ui.horizontal(|ui| {
                 ui.label("Speed:");
                 ui.add(
@@ -115,7 +146,7 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
             });
 
             ui.add_space(4.0);
-            ui.label(format!("Grid: {}x{}", app.ca.width, app.ca.height));
+            ui.label(format!("Grid: {}×{}", app.ca.width, app.ca.height));
             ui.label(format!("Types: {}", app.ca.num_types));
             ui.label(format!(
                 "Status: {}",
@@ -123,6 +154,113 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
             ));
             if app.show_step_counter {
                 ui.label(format!("Step: {}", app.step_counter));
+            }
+
+            ui.add_space(8.0);
+
+            // ── Save / Load state ─────────────────────────────────────────────
+            ui.separator();
+            ui.strong("Save / Load State");
+            ui.horizontal(|ui| {
+                if ui.button("💾 Save").clicked() {
+                    let now = ui.input(|i| i.time);
+                    app.save_state(now);
+                }
+                if ui.button("📂 Load").clicked() {
+                    let now = ui.input(|i| i.time);
+                    app.load_state(now);
+                }
+            });
+            ui.label(
+                egui::RichText::new("Saves/loads to Desktop/CyclicCA_state.ccas")
+                    .small()
+                    .weak(),
+            );
+
+            ui.add_space(8.0);
+
+            // ── Auto-stop ─────────────────────────────────────────────────────
+            ui.separator();
+            ui.strong("Auto-Stop");
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut app.auto_stop_enabled, "Enabled");
+            });
+            if app.auto_stop_enabled {
+                ui.horizontal(|ui| {
+                    ui.label("Stop at step:");
+                    ui.add(
+                        egui::DragValue::new(&mut app.auto_stop_steps)
+                            .speed(10.0)
+                            .range(1..=1_000_000),
+                    );
+                });
+                if app.step_counter > 0 {
+                    let remaining = if app.auto_stop_steps > app.step_counter {
+                        app.auto_stop_steps - app.step_counter
+                    } else {
+                        0
+                    };
+                    ui.label(
+                        egui::RichText::new(format!("{} steps remaining", remaining))
+                            .small()
+                            .weak(),
+                    );
+                }
+            }
+
+            ui.add_space(8.0);
+
+            // ── GIF Recording ─────────────────────────────────────────────────
+            ui.separator();
+            ui.strong("GIF Export");
+
+            if !app.recording {
+                ui.horizontal(|ui| {
+                    ui.label("Frames:");
+                    ui.add(
+                        egui::DragValue::new(&mut app.record_frame_target)
+                            .speed(1.0)
+                            .range(4..=500),
+                    );
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Capture every:");
+                    ui.add(
+                        egui::DragValue::new(&mut app.record_capture_every)
+                            .speed(1.0)
+                            .range(1..=60),
+                    );
+                    ui.label("steps");
+                });
+                ui.label(
+                    egui::RichText::new(format!(
+                        "≈{:.0}s of simulation",
+                        app.record_frame_target as f32 * app.record_capture_every as f32 / app.speed
+                    ))
+                    .small()
+                    .weak(),
+                );
+                ui.add_space(4.0);
+                let can_record = app.running || true; // always allow
+                if ui.add_enabled(can_record, egui::Button::new("⏺ Start Recording")).clicked() {
+                    app.start_recording();
+                    if !app.running {
+                        app.running = true;
+                    }
+                }
+            } else {
+                ui.label(
+                    egui::RichText::new(format!(
+                        "⏺ {}/{} frames captured",
+                        app.record_frames.len(),
+                        app.record_frame_target,
+                    ))
+                    .color(egui::Color32::from_rgb(220, 80, 80)),
+                );
+                if ui.button("⏹ Stop & Save GIF").clicked() {
+                    let now = ui.input(|i| i.time);
+                    app.finish_recording(now);
+                }
             }
         });
 }
@@ -265,7 +403,7 @@ pub fn render_presets_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
                         });
                         ui.label(
                             egui::RichText::new(format!(
-                                "{}x{} · {} types · {} · {:.2}fps",
+                                "{}×{} · {} types · {} · {:.2}fps",
                                 preset.width,
                                 preset.height,
                                 preset.num_types,

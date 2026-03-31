@@ -24,6 +24,24 @@ impl ColorScheme {
             ColorScheme::Grayscale => "Grayscale",
         }
     }
+
+    pub fn as_u8(self) -> u8 {
+        match self {
+            ColorScheme::Rainbow   => 0,
+            ColorScheme::Ocean     => 1,
+            ColorScheme::Fire      => 2,
+            ColorScheme::Grayscale => 3,
+        }
+    }
+
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => ColorScheme::Ocean,
+            2 => ColorScheme::Fire,
+            3 => ColorScheme::Grayscale,
+            _ => ColorScheme::Rainbow,
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -45,6 +63,22 @@ impl Neighborhood {
             Neighborhood::VonNeumann => "Von Neumann (4)",
             Neighborhood::Moore => "Moore (8)",
             Neighborhood::Extended => "Extended (12)",
+        }
+    }
+
+    pub fn as_u8(self) -> u8 {
+        match self {
+            Neighborhood::VonNeumann => 0,
+            Neighborhood::Moore      => 1,
+            Neighborhood::Extended   => 2,
+        }
+    }
+
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Neighborhood::Moore,
+            2 => Neighborhood::Extended,
+            _ => Neighborhood::VonNeumann,
         }
     }
 }
@@ -71,6 +105,24 @@ impl Symmetry {
             Symmetry::Horizontal => "Horizontal (L=R)",
             Symmetry::Vertical   => "Vertical (T=B)",
             Symmetry::FourFold   => "Four-fold (L=R=T=B)",
+        }
+    }
+
+    pub fn as_u8(self) -> u8 {
+        match self {
+            Symmetry::None       => 0,
+            Symmetry::Horizontal => 1,
+            Symmetry::Vertical   => 2,
+            Symmetry::FourFold   => 3,
+        }
+    }
+
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Symmetry::Horizontal,
+            2 => Symmetry::Vertical,
+            3 => Symmetry::FourFold,
+            _ => Symmetry::None,
         }
     }
 }
