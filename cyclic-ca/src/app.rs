@@ -149,28 +149,49 @@ impl eframe::App for CyclicCAApp {
             .show(ctx, |ui| {
                 if let Some(texture) = &self.texture {
                     let available_size = ui.available_size();
+                    let bottom_space = 48.0;
+                    let usable = egui::vec2(available_size.x, available_size.y - bottom_space);
                     let aspect_ratio = self.ca.width as f32 / self.ca.height as f32;
 
                     let (display_width, display_height) =
-                        if available_size.x / available_size.y > aspect_ratio {
-                            let h = available_size.y;
+                        if usable.x / usable.y > aspect_ratio {
+                            let h = usable.y;
                             (h * aspect_ratio, h)
                         } else {
-                            let w = available_size.x;
+                            let w = usable.x;
                             (w, w / aspect_ratio)
                         };
 
                     let size = egui::vec2(display_width, display_height);
                     let offset = egui::vec2(
                         (available_size.x - display_width) / 2.0,
-                        (available_size.y - display_height) / 2.0,
+                        (usable.y - display_height) / 2.0,
+                    );
+                    let image_rect = egui::Rect::from_min_size(
+                        ui.min_rect().min + offset,
+                        size,
+                    );
+
+                    // Shadow
+                    let painter = ui.painter();
+                    for i in 1..=6u8 {
+                        let spread = i as f32 * 2.0;
+                        let alpha = 25u8.saturating_sub(i * 3);
+                        painter.rect_filled(
+                            image_rect.translate(egui::vec2(spread, spread)).expand(spread * 0.5),
+                            2.0,
+                            egui::Color32::from_black_alpha(alpha),
+                        );
+                    }
+                    // Border
+                    painter.rect_stroke(
+                        image_rect,
+                        0.0,
+                        egui::Stroke::new(1.5, egui::Color32::from_gray(80)),
                     );
 
                     ui.allocate_new_ui(
-                        egui::UiBuilder::new().max_rect(egui::Rect::from_min_size(
-                            ui.min_rect().min + offset,
-                            size,
-                        )),
+                        egui::UiBuilder::new().max_rect(image_rect),
                         |ui| {
                             ui.image(egui::load::SizedTexture::new(texture.id(), size));
                         },
