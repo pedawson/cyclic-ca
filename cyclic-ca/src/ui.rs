@@ -76,7 +76,6 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                 if ui.button(if app.running { "Stop" } else { "Start" }).clicked() {
                     app.running = !app.running;
                 }
-
                 if ui.button("Step").clicked() {
                     app.ca.update();
                     app.step_counter += 1;
@@ -88,7 +87,6 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                     app.ca.randomize();
                     app.step_counter = 0;
                 }
-
                 if ui.button("Clear").clicked() {
                     app.ca.clear();
                     app.running = false;
@@ -96,11 +94,24 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                 }
             });
 
+            ui.add_space(4.0);
+
+            // Export button
+            if ui.button("📷 Export PNG").clicked() {
+                let now = ui.input(|i| i.time);
+                app.export_png(now);
+            }
+
             ui.add_space(8.0);
 
+            // Extended speed range: 0.25 → 120 fps
             ui.horizontal(|ui| {
                 ui.label("Speed:");
-                ui.add(egui::Slider::new(&mut app.speed, 1.0..=120.0).suffix(" fps"));
+                ui.add(
+                    egui::Slider::new(&mut app.speed, 0.25..=120.0)
+                        .suffix(" fps")
+                        .logarithmic(true),
+                );
             });
 
             ui.add_space(4.0);
@@ -174,4 +185,82 @@ pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
         });
 
     app.options_open = open;
+}
+
+pub fn render_presets_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
+    if !app.presets_open {
+        return;
+    }
+
+    let mut open = app.presets_open;
+    egui::Window::new("Presets")
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(false)
+        .default_width(300.0)
+        .show(ctx, |ui| {
+            // Save current settings as a named preset
+            ui.strong("Save Current Settings");
+            ui.separator();
+            ui.horizontal(|ui| {
+                ui.label("Name:");
+                ui.text_edit_singleline(&mut app.preset_name_input);
+            });
+            ui.add_space(4.0);
+            let can_save = !app.preset_name_input.trim().is_empty();
+            if ui.add_enabled(can_save, egui::Button::new("Save Preset")).clicked() {
+                app.save_preset();
+            }
+
+            ui.add_space(12.0);
+
+            // List of saved presets
+            ui.strong("Saved Presets");
+            ui.separator();
+
+            if app.presets.is_empty() {
+                ui.label(egui::RichText::new("No presets saved yet.").weak().small());
+            } else {
+                let mut to_load: Option<usize> = None;
+                let mut to_delete: Option<usize> = None;
+
+                egui::ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
+                    for (i, preset) in app.presets.iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new(&preset.name).strong());
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                if ui.small_button("✕").clicked() {
+                                    to_delete = Some(i);
+                                }
+                                if ui.small_button("Load").clicked() {
+                                    to_load = Some(i);
+                                }
+                            });
+                        });
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "{}x{} · {} types · {} · {:.2}fps",
+                                preset.width,
+                                preset.height,
+                                preset.num_types,
+                                preset.color_scheme.name(),
+                                preset.speed,
+                            ))
+                            .small()
+                            .weak(),
+                        );
+                        ui.separator();
+                    }
+                });
+
+                if let Some(i) = to_load {
+                    app.load_preset(i);
+                }
+                if let Some(i) = to_delete {
+                    app.presets.remove(i);
+                }
+            }
+        });
+
+    app.presets_open = open;
 }

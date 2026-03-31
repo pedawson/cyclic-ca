@@ -288,6 +288,19 @@ impl CyclicCellularAutomata {
         std::mem::swap(&mut self.grid, &mut self.next_grid);
     }
 
+    /// Returns flat RGB bytes (r,g,b per pixel, row-major) for PNG export.
+    pub fn to_rgb_bytes(&self) -> Vec<u8> {
+        self.grid
+            .iter()
+            .flat_map(|row| {
+                row.iter().flat_map(|&cell| {
+                    let [r, g, b] = self.colors[cell];
+                    [r, g, b]
+                })
+            })
+            .collect()
+    }
+
     pub fn to_color_image(&self) -> egui::ColorImage {
         let pixels: Vec<egui::Color32> = self
             .grid

@@ -1,13 +1,30 @@
-use crate::ca::{ColorScheme, CyclicCellularAutomata, Pattern};
+use crate::ca::{ColorScheme, CyclicCellularAutomata, Neighborhood, Pattern};
 use crate::ui;
 use eframe::egui;
+
+// ── Preset ───────────────────────────────────────────────────────────────────
+
+#[derive(Clone)]
+pub struct Preset {
+    pub name: String,
+    pub width: usize,
+    pub height: usize,
+    pub num_types: usize,
+    pub color_scheme: ColorScheme,
+    pub neighborhood: Neighborhood,
+    pub threshold: usize,
+    pub speed: f32,
+    pub steps_per_frame: usize,
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 pub struct CyclicCAApp {
     pub ca: CyclicCellularAutomata,
     pub running: bool,
     pub texture: Option<egui::TextureHandle>,
 
-    // Pending values for grid settings (applied on "Apply" button)
+    // Pending grid settings (applied on "Apply")
     pub pending_width: usize,
     pub pending_height: usize,
     pub pending_types: usize,
@@ -16,7 +33,7 @@ pub struct CyclicCAApp {
     pub selected_pattern: Pattern,
     pub selected_color_scheme: ColorScheme,
 
-    // Speed control (updates per second)
+    // Speed control
     pub speed: f32,
     pub last_update: f64,
 
@@ -31,6 +48,14 @@ pub struct CyclicCAApp {
     pub steps_per_frame: usize,
     pub step_counter: u64,
     pub show_step_counter: bool,
+
+    // Presets window
+    pub presets_open: bool,
+    pub presets: Vec<Preset>,
+    pub preset_name_input: String,
+
+    // Export feedback (message + expiry time)
+    pub export_message: Option<(String, f64)>,
 }
 
 impl Default for CyclicCAApp {
@@ -58,6 +83,10 @@ impl Default for CyclicCAApp {
             steps_per_frame: 1,
             step_counter: 0,
             show_step_counter: true,
+            presets_open: false,
+            presets: Vec::new(),
+            preset_name_input: String::new(),
+            export_message: None,
         }
     }
 }
@@ -76,18 +105,80 @@ impl CyclicCAApp {
             self.texture = Some(ctx.load_texture("ca_grid", image, egui::TextureOptions::NEAREST));
         }
     }
+
+    pub fn export_png(&mut self, now: f64) {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let desktop = std::path::Path::new(&home).join("Desktop");
+        let filename = format!(
+            "CyclicCA_{}x{}_t{}.png",
+            self.ca.width,
+            self.ca.height,
+            self.step_counter
+        );
+        let path = desktop.join(&filename);
+
+        let bytes = self.ca.to_rgb_bytes();
+        let result = image::save_buffer(
+            &path,
+            &bytes,
+            self.ca.width as u32,
+            self.ca.height as u32,
+            image::ColorType::Rgb8,
+        );
+
+        self.export_message = Some(match result {
+            Ok(_) => (format!("Saved: {}", filename), now + 4.0),
+            Err(e) => (format!("Export failed: {}", e), now + 4.0),
+        });
+    }
+
+    pub fn save_preset(&mut self) {
+        let name = self.preset_name_input.trim().to_string();
+        if name.is_empty() {
+            return;
+        }
+        // Replace existing preset with same name
+        self.presets.retain(|p| p.name != name);
+        self.presets.push(Preset {
+            name,
+            width: self.ca.width,
+            height: self.ca.height,
+            num_types: self.ca.num_types,
+            color_scheme: self.ca.color_scheme,
+            neighborhood: self.ca.neighborhood,
+            threshold: self.ca.threshold,
+            speed: self.speed,
+            steps_per_frame: self.steps_per_frame,
+        });
+        self.preset_name_input.clear();
+    }
+
+    pub fn load_preset(&mut self, idx: usize) {
+        if let Some(p) = self.presets.get(idx).cloned() {
+            self.ca.resize(p.width, p.height, p.num_types);
+            self.ca.set_color_scheme(p.color_scheme);
+            self.ca.neighborhood = p.neighborhood;
+            self.ca.threshold = p.threshold;
+            self.speed = p.speed;
+            self.steps_per_frame = p.steps_per_frame;
+            self.selected_color_scheme = p.color_scheme;
+            self.pending_width = p.width;
+            self.pending_height = p.height;
+            self.pending_types = p.num_types;
+            self.step_counter = 0;
+        }
+    }
 }
 
 impl eframe::App for CyclicCAApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Re-apply every frame so eframe can't override with the system theme
         crate::theme::apply_visuals(ctx);
 
-        // Update simulation if running, respecting speed setting
-        if self.running {
-            let now = ctx.input(|i| i.time);
-            let interval = 1.0 / self.speed as f64;
+        let now = ctx.input(|i| i.time);
 
+        // Simulation tick
+        if self.running {
+            let interval = 1.0 / self.speed as f64;
             if now - self.last_update >= interval {
                 for _ in 0..self.steps_per_frame {
                     self.ca.update();
@@ -98,10 +189,18 @@ impl eframe::App for CyclicCAApp {
             ctx.request_repaint();
         }
 
-        // Update texture
+        // Expire export message
+        if let Some((_, expiry)) = &self.export_message {
+            if now > *expiry {
+                self.export_message = None;
+            } else {
+                ctx.request_repaint();
+            }
+        }
+
         self.update_texture(ctx);
 
-        // Sidebar panel — macOS blue-gray background
+        // ── Sidebar ──────────────────────────────────────────────────────────
         let sidebar_frame = egui::Frame {
             fill: crate::theme::SIDEBAR_BG,
             inner_margin: egui::Margin::symmetric(12.0, 8.0),
@@ -117,9 +216,13 @@ impl eframe::App for CyclicCAApp {
                 ui.horizontal(|ui| {
                     ui.heading("Cyclic CA");
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let label = if self.options_open { "Options ▲" } else { "Options ▼" };
-                        if ui.button(label).clicked() {
+                        let opt_label = if self.options_open { "Options ▲" } else { "Options ▼" };
+                        if ui.button(opt_label).clicked() {
                             self.options_open = !self.options_open;
+                        }
+                        let pre_label = if self.presets_open { "Presets ▲" } else { "Presets ▼" };
+                        if ui.button(pre_label).clicked() {
+                            self.presets_open = !self.presets_open;
                         }
                     });
                 });
@@ -138,7 +241,7 @@ impl eframe::App for CyclicCAApp {
                 });
             });
 
-        // Central panel — pure white
+        // ── Central panel ─────────────────────────────────────────────────────
         let content_frame = egui::Frame {
             fill: crate::theme::CONTENT_BG,
             ..Default::default()
@@ -196,10 +299,24 @@ impl eframe::App for CyclicCAApp {
                             ui.image(egui::load::SizedTexture::new(texture.id(), size));
                         },
                     );
+
+                    // Export status message in bottom whitespace
+                    if let Some((msg, _)) = &self.export_message {
+                        let msg_rect = egui::Rect::from_min_size(
+                            ui.min_rect().min + egui::vec2(0.0, available_size.y - bottom_space + 12.0),
+                            egui::vec2(available_size.x, bottom_space - 12.0),
+                        );
+                        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(msg_rect), |ui| {
+                            ui.centered_and_justified(|ui| {
+                                ui.label(egui::RichText::new(msg).small().weak());
+                            });
+                        });
+                    }
                 }
             });
 
-        // Options window (floats on top)
+        // ── Floating windows ──────────────────────────────────────────────────
         ui::render_options_window(self, ctx);
+        ui::render_presets_window(self, ctx);
     }
 }
