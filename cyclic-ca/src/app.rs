@@ -68,6 +68,9 @@ pub struct CyclicCAApp {
     pub record_since_last: usize,
     pub record_frames: Vec<Vec<u8>>,
 
+    // Rule editor
+    pub rule_editor_open: bool,
+
     // Custom palette editor
     pub palette_open: bool,
     pub custom_palette: [[u8; 3]; 6],
@@ -125,6 +128,7 @@ impl Default for CyclicCAApp {
             record_capture_every: 1,
             record_since_last: 0,
             record_frames: Vec::new(),
+            rule_editor_open: false,
             palette_open: false,
             custom_palette: DEFAULT_PALETTE,
             palette_selected: 0,
@@ -567,6 +571,8 @@ impl eframe::App for CyclicCAApp {
                         if ui.button(ol).clicked() { self.options_open = !self.options_open; }
                         let pl = if self.presets_open { "Presets ▲" } else { "Presets ▼" };
                         if ui.button(pl).clicked() { self.presets_open = !self.presets_open; }
+                        let rl = if self.rule_editor_open { "Rules ▲" } else { "Rules ▼" };
+                        if ui.button(rl).clicked() { self.rule_editor_open = !self.rule_editor_open; }
                     });
                 });
                 ui.add_space(2.0);
@@ -685,5 +691,6 @@ impl eframe::App for CyclicCAApp {
         ui::render_options_window(self, ctx);
         ui::render_presets_window(self, ctx);
         ui::render_palette_window(self, ctx);
+        ui::render_rule_editor_window(self, ctx);
     }
 }

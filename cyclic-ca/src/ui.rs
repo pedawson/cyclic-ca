@@ -1,5 +1,5 @@
 use crate::app::CyclicCAApp;
-use crate::ca::{ColorScheme, Neighborhood, Pattern, Symmetry as CaSymmetry};
+use crate::ca::{ColorScheme, Neighborhood, Pattern, Symmetry as CaSymmetry, MATRIX_MAX};
 use eframe::egui;
 
 // ── Aspect ratio presets ───────────────────────────────────────────────────────
@@ -593,4 +593,191 @@ pub fn render_palette_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
         });
 
     app.palette_open = open;
+}
+
+// ── Rule Editor window ────────────────────────────────────────────────────────
+
+pub fn render_rule_editor_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
+    if !app.rule_editor_open { return; }
+
+    let n = app.ca.num_types.min(MATRIX_MAX);
+
+    let mut open = app.rule_editor_open;
+    egui::Window::new("Rule Editor")
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(false)
+        .default_width(360.0)
+        .show(ctx, |ui| {
+
+            // ── Enable toggle ─────────────────────────────────────────────
+            ui.horizontal(|ui| {
+                let label = if app.ca.use_rule_matrix {
+                    egui::RichText::new("● Matrix rules active")
+                        .color(egui::Color32::from_rgb(80, 220, 120))
+                        .strong()
+                } else {
+                    egui::RichText::new("○ Standard cyclic rule active").weak()
+                };
+                if ui.checkbox(&mut app.ca.use_rule_matrix, "").changed() {
+                    // When enabling, clamp to MATRIX_MAX types
+                    if app.ca.use_rule_matrix && app.ca.num_types > MATRIX_MAX {
+                        let (w, h) = (app.ca.width, app.ca.height);
+                        app.ca.resize(w, h, MATRIX_MAX);
+                        app.pending_types = MATRIX_MAX;
+                        if app.selected_color_scheme == ColorScheme::Custom {
+                            app.apply_custom_palette();
+                        }
+                    }
+                }
+                ui.label(label);
+            });
+            ui.label(
+                egui::RichText::new(
+                    "Each ✔ means: the ROW type can eat the COLUMN type.\n\
+                     When multiple predators qualify, the one with more neighbours wins."
+                )
+                .small().weak(),
+            );
+
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(6.0);
+
+            // ── Matrix grid ───────────────────────────────────────────────
+            // Header row: "eats →" label + one coloured box per type (columns = victims)
+            let swatch = egui::vec2(28.0, 22.0);
+            let rounding = 3.0;
+
+            ui.horizontal(|ui| {
+                // Corner label
+                ui.add_space(70.0); // row-header width
+                ui.label(egui::RichText::new("victim →").small().weak());
+            });
+
+            ui.horizontal(|ui| {
+                ui.add_space(70.0);
+                for col in 0..n {
+                    let [r, g, b] = app.ca.type_color(col);
+                    let (rect, _) = ui.allocate_exact_size(swatch, egui::Sense::hover());
+                    ui.painter().rect_filled(rect, rounding, egui::Color32::from_rgb(r, g, b));
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        format!("{}", col + 1),
+                        egui::FontId::proportional(11.0),
+                        egui::Color32::from_white_alpha(220),
+                    );
+                }
+            });
+
+            ui.add_space(4.0);
+
+            // One row per eater type
+            for row in 0..n {
+                ui.horizontal(|ui| {
+                    // Row header: coloured swatch + "Type N eats:"
+                    let [r, g, b] = app.ca.type_color(row);
+                    let (rect, _) = ui.allocate_exact_size(
+                        egui::vec2(18.0, 18.0), egui::Sense::hover()
+                    );
+                    ui.painter().rect_filled(rect, rounding, egui::Color32::from_rgb(r, g, b));
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        format!("{}", row + 1),
+                        egui::FontId::proportional(10.0),
+                        egui::Color32::from_white_alpha(220),
+                    );
+                    ui.label(egui::RichText::new(" eats:").small());
+
+                    // Checkbox per victim column
+                    for col in 0..n {
+                        // Shade the standard-cycle diagonal differently
+                        let is_default = col == (row + 1) % n;
+                        let cell_size = swatch;
+
+                        // Allocate space for a centred checkbox
+                        let (cell_rect, _) = ui.allocate_exact_size(cell_size, egui::Sense::hover());
+                        let cb_rect = egui::Rect::from_center_size(
+                            cell_rect.center(),
+                            egui::vec2(16.0, 16.0),
+                        );
+
+                        // Background tint for the standard-cycle diagonal
+                        if is_default {
+                            ui.painter().rect_filled(
+                                cell_rect.expand(1.0),
+                                2.0,
+                                egui::Color32::from_white_alpha(12),
+                            );
+                        }
+
+                        // Can't self-eat
+                        if row == col {
+                            ui.painter().text(
+                                cell_rect.center(),
+                                egui::Align2::CENTER_CENTER,
+                                "—",
+                                egui::FontId::proportional(12.0),
+                                egui::Color32::from_gray(60),
+                            );
+                        } else {
+                            // Draw checkbox manually so we can position it inside the cell
+                            let cb_response = ui.allocate_rect(cb_rect, egui::Sense::click());
+                            let checked = app.ca.rule_matrix[row][col];
+
+                            let bg = if checked {
+                                egui::Color32::from_rgb(60, 180, 100)
+                            } else {
+                                egui::Color32::from_gray(45)
+                            };
+                            let border = if cb_response.hovered() {
+                                egui::Color32::from_gray(180)
+                            } else {
+                                egui::Color32::from_gray(90)
+                            };
+
+                            ui.painter().rect_filled(cb_rect, 3.0, bg);
+                            ui.painter().rect_stroke(cb_rect, 3.0, egui::Stroke::new(1.0, border));
+
+                            if checked {
+                                ui.painter().text(
+                                    cb_rect.center(),
+                                    egui::Align2::CENTER_CENTER,
+                                    "✔",
+                                    egui::FontId::proportional(11.0),
+                                    egui::Color32::WHITE,
+                                );
+                            }
+
+                            if cb_response.clicked() {
+                                app.ca.rule_matrix[row][col] = !checked;
+                            }
+                        }
+                    }
+                });
+            }
+
+            ui.add_space(10.0);
+            ui.separator();
+
+            // ── Controls ──────────────────────────────────────────────────
+            ui.horizontal(|ui| {
+                if ui.button("↺ Reset to standard cycle").clicked() {
+                    app.ca.reset_rule_matrix();
+                }
+                if ui.button("✕ Clear all").clicked() {
+                    app.ca.rule_matrix = [[false; MATRIX_MAX]; MATRIX_MAX];
+                }
+            });
+            ui.label(
+                egui::RichText::new(
+                    "Tip: clearing all rules freezes the grid — try unusual combos!"
+                )
+                .small().weak(),
+            );
+        });
+
+    app.rule_editor_open = open;
 }

@@ -161,6 +161,9 @@ impl Pattern {
     }
 }
 
+/// Maximum number of types supported by the rule matrix.
+pub const MATRIX_MAX: usize = 6;
+
 pub struct CyclicCellularAutomata {
     pub width: usize,
     pub height: usize,
@@ -168,9 +171,15 @@ pub struct CyclicCellularAutomata {
     pub grid: Vec<Vec<usize>>,
     next_grid: Vec<Vec<usize>>,
     pub color_scheme: ColorScheme,
-    colors: Vec<[u8; 3]>,
+    pub colors: Vec<[u8; 3]>,
     pub neighborhood: Neighborhood,
     pub threshold: usize,
+
+    /// When true, update() uses rule_matrix instead of the standard cyclic rule.
+    pub use_rule_matrix: bool,
+    /// rule_matrix[eater][victim] = true  →  eater can consume victim.
+    /// Only the first num_types rows/columns are active.
+    pub rule_matrix: [[bool; MATRIX_MAX]; MATRIX_MAX],
 }
 
 impl CyclicCellularAutomata {
@@ -180,6 +189,7 @@ impl CyclicCellularAutomata {
         let color_scheme = ColorScheme::Rainbow;
         let colors = Self::generate_colors(num_types, color_scheme);
 
+        let rule_matrix = Self::default_matrix(num_types);
         let mut ca = Self {
             width,
             height,
@@ -190,9 +200,31 @@ impl CyclicCellularAutomata {
             colors,
             neighborhood: Neighborhood::VonNeumann,
             threshold: 1,
+            use_rule_matrix: false,
+            rule_matrix,
         };
         ca.apply_pattern(Pattern::Random);
         ca
+    }
+
+    /// Build the standard cyclic rule as a matrix: eater E eats (E+1) % num_types.
+    pub fn default_matrix(num_types: usize) -> [[bool; MATRIX_MAX]; MATRIX_MAX] {
+        let mut m = [[false; MATRIX_MAX]; MATRIX_MAX];
+        let n = num_types.min(MATRIX_MAX);
+        for e in 0..n {
+            m[e][(e + 1) % n] = true;
+        }
+        m
+    }
+
+    /// Reset rule_matrix to the standard cyclic rule for the current num_types.
+    pub fn reset_rule_matrix(&mut self) {
+        self.rule_matrix = Self::default_matrix(self.num_types);
+    }
+
+    /// Return the display colour for cell type t.
+    pub fn type_color(&self, t: usize) -> [u8; 3] {
+        self.colors.get(t).copied().unwrap_or([128, 128, 128])
     }
 
     pub fn resize(&mut self, width: usize, height: usize, num_types: usize) {
@@ -202,8 +234,9 @@ impl CyclicCellularAutomata {
         self.grid = vec![vec![0; width]; height];
         self.next_grid = vec![vec![0; width]; height];
         self.colors = Self::generate_colors(num_types, self.color_scheme);
+        self.rule_matrix = Self::default_matrix(num_types);
         self.apply_pattern(Pattern::Random);
-        // neighborhood and threshold are preserved
+        // neighborhood, threshold and use_rule_matrix are preserved
     }
 
     pub fn set_color_scheme(&mut self, scheme: ColorScheme) {
@@ -358,6 +391,14 @@ impl CyclicCellularAutomata {
     }
 
     pub fn update(&mut self) {
+        if self.use_rule_matrix {
+            self.update_matrix();
+        } else {
+            self.update_standard();
+        }
+    }
+
+    fn update_standard(&mut self) {
         let prey_types: Vec<usize> = (0..self.num_types)
             .map(|i| (i + self.num_types - 1) % self.num_types)
             .collect();
@@ -379,6 +420,44 @@ impl CyclicCellularAutomata {
                 } else {
                     current_type
                 };
+            }
+        }
+
+        std::mem::swap(&mut self.grid, &mut self.next_grid);
+    }
+
+    fn update_matrix(&mut self) {
+        let n = self.num_types.min(MATRIX_MAX);
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let victim = self.grid[y][x];
+                if victim >= n {
+                    self.next_grid[y][x] = victim;
+                    continue;
+                }
+
+                // Count neighbours of every active type in one pass
+                let mut counts = [0usize; MATRIX_MAX];
+                for (nx, ny) in self.get_neighbors(x, y) {
+                    let nt = self.grid[ny][nx];
+                    if nt < n { counts[nt] += 1; }
+                }
+
+                // Find the eater with the highest qualifying count
+                let mut best_eater = victim; // default: no change
+                let mut best_count = self.threshold.saturating_sub(1); // must beat threshold
+                for eater in 0..n {
+                    if self.rule_matrix[eater][victim] {
+                        let c = counts[eater];
+                        if c >= self.threshold && c > best_count {
+                            best_count = c;
+                            best_eater = eater;
+                        }
+                    }
+                }
+
+                self.next_grid[y][x] = best_eater;
             }
         }
 
