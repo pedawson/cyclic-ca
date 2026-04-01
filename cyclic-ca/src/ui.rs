@@ -645,113 +645,119 @@ pub fn render_rule_editor_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
             ui.add_space(6.0);
 
             // ── Matrix grid ───────────────────────────────────────────────
-            // Header row: "eats →" label + one coloured box per type (columns = victims)
-            let swatch = egui::vec2(28.0, 22.0);
-            let rounding = 3.0;
+            // Use zero item_spacing so column alignment is exact: every row
+            // allocates HDR_W for the row-header, then CELL_W per type column.
+            let hdr_w  = 80.0_f32;   // fixed row-header width
+            let cell_w = 26.0_f32;   // width of every type column (header + checkboxes)
+            let row_h  = 24.0_f32;
+            let icon   = 18.0_f32;   // coloured swatch size
+            let cb     = 16.0_f32;   // checkbox size
+            let rounding = 3.0_f32;
 
+            // "victim →" label row
             ui.horizontal(|ui| {
-                // Corner label
-                ui.add_space(70.0); // row-header width
+                ui.spacing_mut().item_spacing.x = 0.0;
+                ui.allocate_exact_size(egui::vec2(hdr_w, 14.0), egui::Sense::hover());
                 ui.label(egui::RichText::new("victim →").small().weak());
             });
 
+            // Column-header icon row
             ui.horizontal(|ui| {
-                ui.add_space(70.0);
+                ui.spacing_mut().item_spacing.x = 0.0;
+                ui.allocate_exact_size(egui::vec2(hdr_w, row_h), egui::Sense::hover());
                 for col in 0..n {
                     let [r, g, b] = app.ca.type_color(col);
-                    let (rect, _) = ui.allocate_exact_size(swatch, egui::Sense::hover());
-                    ui.painter().rect_filled(rect, rounding, egui::Color32::from_rgb(r, g, b));
+                    let (cell, _) = ui.allocate_exact_size(
+                        egui::vec2(cell_w, row_h), egui::Sense::hover()
+                    );
+                    let ic = egui::Rect::from_center_size(cell.center(), egui::vec2(icon, icon));
+                    ui.painter().rect_filled(ic, rounding, egui::Color32::from_rgb(r, g, b));
                     ui.painter().text(
-                        rect.center(),
-                        egui::Align2::CENTER_CENTER,
+                        ic.center(), egui::Align2::CENTER_CENTER,
                         format!("{}", col + 1),
-                        egui::FontId::proportional(11.0),
+                        egui::FontId::proportional(10.0),
                         egui::Color32::from_white_alpha(220),
                     );
                 }
             });
 
-            ui.add_space(4.0);
+            ui.add_space(2.0);
 
             // One row per eater type
             for row in 0..n {
                 ui.horizontal(|ui| {
-                    // Row header: coloured swatch + "Type N eats:"
+                    ui.spacing_mut().item_spacing.x = 0.0;
+
+                    // Row header — fixed hdr_w, drawn entirely with painter
                     let [r, g, b] = app.ca.type_color(row);
-                    let (rect, _) = ui.allocate_exact_size(
-                        egui::vec2(18.0, 18.0), egui::Sense::hover()
+                    let (hdr, _) = ui.allocate_exact_size(
+                        egui::vec2(hdr_w, row_h), egui::Sense::hover()
                     );
-                    ui.painter().rect_filled(rect, rounding, egui::Color32::from_rgb(r, g, b));
+                    let sw = egui::Rect::from_min_size(
+                        hdr.min + egui::vec2(0.0, (row_h - icon) / 2.0),
+                        egui::vec2(icon, icon),
+                    );
+                    ui.painter().rect_filled(sw, rounding, egui::Color32::from_rgb(r, g, b));
                     ui.painter().text(
-                        rect.center(),
-                        egui::Align2::CENTER_CENTER,
+                        sw.center(), egui::Align2::CENTER_CENTER,
                         format!("{}", row + 1),
                         egui::FontId::proportional(10.0),
                         egui::Color32::from_white_alpha(220),
                     );
-                    ui.label(egui::RichText::new(" eats:").small());
+                    ui.painter().text(
+                        sw.right_center() + egui::vec2(5.0, 0.0),
+                        egui::Align2::LEFT_CENTER,
+                        "eats:",
+                        egui::FontId::proportional(11.0),
+                        egui::Color32::from_gray(160),
+                    );
 
-                    // Checkbox per victim column
+                    // Checkbox cells
                     for col in 0..n {
-                        // Shade the standard-cycle diagonal differently
                         let is_default = col == (row + 1) % n;
-                        let cell_size = swatch;
-
-                        // Allocate space for a centred checkbox
-                        let (cell_rect, _) = ui.allocate_exact_size(cell_size, egui::Sense::hover());
+                        let (cell, _) = ui.allocate_exact_size(
+                            egui::vec2(cell_w, row_h), egui::Sense::hover()
+                        );
                         let cb_rect = egui::Rect::from_center_size(
-                            cell_rect.center(),
-                            egui::vec2(16.0, 16.0),
+                            cell.center(), egui::vec2(cb, cb)
                         );
 
-                        // Background tint for the standard-cycle diagonal
                         if is_default {
                             ui.painter().rect_filled(
-                                cell_rect.expand(1.0),
-                                2.0,
+                                cell.expand(1.0), 2.0,
                                 egui::Color32::from_white_alpha(12),
                             );
                         }
 
-                        // Can't self-eat
                         if row == col {
+                            // Self — blocked
                             ui.painter().text(
-                                cell_rect.center(),
-                                egui::Align2::CENTER_CENTER,
+                                cell.center(), egui::Align2::CENTER_CENTER,
                                 "—",
                                 egui::FontId::proportional(12.0),
                                 egui::Color32::from_gray(60),
                             );
                         } else {
-                            // Draw checkbox manually so we can position it inside the cell
-                            let cb_response = ui.allocate_rect(cb_rect, egui::Sense::click());
-                            let checked = app.ca.rule_matrix[row][col];
-
-                            let bg = if checked {
-                                egui::Color32::from_rgb(60, 180, 100)
-                            } else {
-                                egui::Color32::from_gray(45)
-                            };
-                            let border = if cb_response.hovered() {
-                                egui::Color32::from_gray(180)
-                            } else {
-                                egui::Color32::from_gray(90)
-                            };
+                            let checked  = app.ca.rule_matrix[row][col];
+                            let resp     = ui.allocate_rect(cb_rect, egui::Sense::click());
+                            let bg       = if checked { egui::Color32::from_rgb(60, 180, 100) }
+                                           else       { egui::Color32::from_gray(45) };
+                            let border   = if resp.hovered() { egui::Color32::from_gray(180) }
+                                           else              { egui::Color32::from_gray(90) };
 
                             ui.painter().rect_filled(cb_rect, 3.0, bg);
-                            ui.painter().rect_stroke(cb_rect, 3.0, egui::Stroke::new(1.0, border));
-
+                            ui.painter().rect_stroke(
+                                cb_rect, 3.0, egui::Stroke::new(1.0, border)
+                            );
                             if checked {
                                 ui.painter().text(
-                                    cb_rect.center(),
-                                    egui::Align2::CENTER_CENTER,
+                                    cb_rect.center(), egui::Align2::CENTER_CENTER,
                                     "✔",
                                     egui::FontId::proportional(11.0),
                                     egui::Color32::WHITE,
                                 );
                             }
-
-                            if cb_response.clicked() {
+                            if resp.clicked() {
                                 app.ca.rule_matrix[row][col] = !checked;
                             }
                         }
