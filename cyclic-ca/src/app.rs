@@ -77,12 +77,12 @@ pub struct CyclicCAApp {
 
 /// The palette shown when the app first runs (and restored by "Reset to defaults").
 pub const DEFAULT_PALETTE: [[u8; 3]; 6] = [
-    [220,  50,  50],   // red
-    [240, 140,   0],   // amber
-    [200, 220,   0],   // yellow-green
-    [  0, 180, 100],   // teal
-    [  0, 100, 220],   // blue
-    [150,   0, 200],   // violet
+    [255,   0,   0],   // red
+    [255, 165,   0],   // orange
+    [255, 255,   0],   // yellow
+    [  0, 255,   0],   // green
+    [  0, 255, 255],   // cyan
+    [255,   0, 255],   // magenta
 ];
 
 impl Default for CyclicCAApp {
