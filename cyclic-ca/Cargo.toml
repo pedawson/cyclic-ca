@@ -1,6 +1,6 @@
 [package]
 name = "cyclic-ca"
-version = "0.13.0"
+version = "0.10.0"
 edition = "2021"
 description = "Cyclic Cellular Automata simulation"
 authors = ["pedawson"]
