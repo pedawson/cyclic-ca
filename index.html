@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyclic Cellular Automata</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+    
+<script type="module">
+import init, * as bindings from '/cyclic-ca-5895a8a9d0baa5ce.js';
+const wasm = await init({ module_or_path: '/cyclic-ca-5895a8a9d0baa5ce_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+<link rel="modulepreload" href="/cyclic-ca-5895a8a9d0baa5ce.js" crossorigin="anonymous" integrity="sha384-clPTGEBkMgvM+TxJXJ0OBPuJ8o5C1Q3XisEPtYHYn1lQe/7OZNKjYWvhbHyhfcv8"><link rel="preload" href="/cyclic-ca-5895a8a9d0baa5ce_bg.wasm" crossorigin="anonymous" integrity="sha384-kRNVp63DOr3tN1CbwUmYPZw00+LF8TQ8ZVFaX7ihJBXyjYP64CQK8wF/wT7Vuou9" as="fetch" type="application/wasm"></head>
+<body>
+    <canvas id="the_canvas_id"></canvas>
+</body>
+</html>
