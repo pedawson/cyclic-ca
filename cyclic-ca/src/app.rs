@@ -44,6 +44,12 @@ pub struct CyclicCAApp {
     pub patterns_panel_open: bool,
     pub simulation_panel_open: bool,
 
+    // About window
+    pub about_open: bool,
+
+    // Rules window
+    pub rules_open: bool,
+
     // Options window
     pub options_open: bool,
     pub steps_per_frame: usize,
@@ -87,6 +93,8 @@ impl Default for CyclicCAApp {
             visual_panel_open: true,
             patterns_panel_open: true,
             simulation_panel_open: true,
+            about_open: false,
+            rules_open: false,
             options_open: false,
             steps_per_frame: 1,
             step_counter: 0,
@@ -229,19 +237,22 @@ impl eframe::App for CyclicCAApp {
             .show(ctx, |ui| {
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
-                    ui.heading("Cyclic CA");
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let opt_label = if self.options_open { "Options ▲" } else { "Options ▼" };
-                        if ui.button(opt_label).clicked() {
-                            self.options_open = !self.options_open;
-                        }
-                        let pre_label = if self.presets_open { "Presets ▲" } else { "Presets ▼" };
-                        if ui.button(pre_label).clicked() {
-                            self.presets_open = !self.presets_open;
-                        }
-                    });
+                    let rules_label = if self.rules_open { "Rules ☑" } else { "Rules ☐" };
+                    if ui.button(rules_label).clicked() {
+                        self.rules_open = !self.rules_open;
+                    }
+                    let pre_label = if self.presets_open { "Presets ☑" } else { "Presets ☐" };
+                    if ui.button(pre_label).clicked() {
+                        self.presets_open = !self.presets_open;
+                    }
+                    let opt_label = if self.options_open { "Options ☑" } else { "Options ☐" };
+                    if ui.button(opt_label).clicked() {
+                        self.options_open = !self.options_open;
+                    }
+                    if ui.button("About").clicked() {
+                        self.about_open = !self.about_open;
+                    }
                 });
-                ui.add_space(2.0);
                 ui.separator();
                 ui.add_space(4.0);
 
@@ -403,6 +414,8 @@ impl eframe::App for CyclicCAApp {
             });
 
         // ── Floating windows ──────────────────────────────────────────────────
+        ui::render_about_window(self, ctx);
+        ui::render_rules_window(self, ctx);
         ui::render_options_window(self, ctx);
         ui::render_presets_window(self, ctx);
     }

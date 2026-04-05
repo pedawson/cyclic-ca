@@ -6,14 +6,16 @@ pub enum ColorScheme {
     Ocean,
     Fire,
     Grayscale,
+    Custom,
 }
 
 impl ColorScheme {
-    pub const ALL: [ColorScheme; 4] = [
+    pub const ALL: [ColorScheme; 5] = [
         ColorScheme::Rainbow,
         ColorScheme::Ocean,
         ColorScheme::Fire,
         ColorScheme::Grayscale,
+        ColorScheme::Custom,
     ];
 
     pub fn name(&self) -> &'static str {
@@ -22,6 +24,7 @@ impl ColorScheme {
             ColorScheme::Ocean => "Ocean",
             ColorScheme::Fire => "Fire",
             ColorScheme::Grayscale => "Grayscale",
+            ColorScheme::Custom => "Custom",
         }
     }
 }
@@ -193,6 +196,29 @@ impl CyclicCellularAutomata {
                     ColorScheme::Grayscale => {
                         let v = (t * 255.0) as u8;
                         [v, v, v]
+                    }
+                    ColorScheme::Custom => {
+                        // Pastel palette: offset hues with moderate saturation
+                        let h = (t * 360.0 + 30.0) % 360.0;
+                        let s: f32 = 0.6;
+                        let l: f32 = 0.65;
+                        let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+                        let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+                        let m = l - c / 2.0;
+                        let (r, g, b) = if h < 60.0 {
+                            (c, x, 0.0)
+                        } else if h < 120.0 {
+                            (x, c, 0.0)
+                        } else if h < 180.0 {
+                            (0.0, c, x)
+                        } else if h < 240.0 {
+                            (0.0, x, c)
+                        } else if h < 300.0 {
+                            (x, 0.0, c)
+                        } else {
+                            (c, 0.0, x)
+                        };
+                        [((r + m) * 255.0) as u8, ((g + m) * 255.0) as u8, ((b + m) * 255.0) as u8]
                     }
                 }
             })
