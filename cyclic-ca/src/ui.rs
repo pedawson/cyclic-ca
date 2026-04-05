@@ -30,6 +30,54 @@ pub fn render_grid_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
                 app.ca.set_color_scheme(app.selected_color_scheme);
                 app.step_counter = 0;
             }
+
+            ui.add_space(4.0);
+            ui.label("Quick Sizes:");
+            ui.horizontal_wrapped(|ui| {
+                let sizes: &[(&str, usize, usize)] = &[
+                    ("Square 200", 200, 200),
+                    ("Square 300", 300, 300),
+                ];
+                for &(label, w, h) in sizes {
+                    if ui.button(label).clicked() {
+                        app.pending_width = w;
+                        app.pending_height = h;
+                        app.ca.resize(w, h, app.pending_types);
+                        app.ca.set_color_scheme(app.selected_color_scheme);
+                        app.step_counter = 0;
+                    }
+                }
+            });
+            ui.horizontal_wrapped(|ui| {
+                let sizes: &[(&str, usize, usize)] = &[
+                    ("Wide 320\u{00d7}200", 320, 200),
+                    ("Wide 480\u{00d7}270", 480, 270),
+                ];
+                for &(label, w, h) in sizes {
+                    if ui.button(label).clicked() {
+                        app.pending_width = w;
+                        app.pending_height = h;
+                        app.ca.resize(w, h, app.pending_types);
+                        app.ca.set_color_scheme(app.selected_color_scheme);
+                        app.step_counter = 0;
+                    }
+                }
+            });
+            ui.horizontal_wrapped(|ui| {
+                let sizes: &[(&str, usize, usize)] = &[
+                    ("Portrait 200\u{00d7}320", 200, 320),
+                    ("Portrait 270\u{00d7}480", 270, 480),
+                ];
+                for &(label, w, h) in sizes {
+                    if ui.button(label).clicked() {
+                        app.pending_width = w;
+                        app.pending_height = h;
+                        app.ca.resize(w, h, app.pending_types);
+                        app.ca.set_color_scheme(app.selected_color_scheme);
+                        app.step_counter = 0;
+                    }
+                }
+            });
         });
 }
 
@@ -127,22 +175,18 @@ pub fn render_simulation_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
         });
 }
 
-pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
-    if !app.options_open {
+pub fn render_rules_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
+    if !app.rules_open {
         return;
     }
 
-    let mut open = app.options_open;
-    egui::Window::new("Options")
+    let mut open = app.rules_open;
+    egui::Window::new("Rules")
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
         .default_width(280.0)
         .show(ctx, |ui| {
-            // Simulation Rules
-            ui.strong("Simulation Rules");
-            ui.separator();
-
             ui.label("Neighborhood:");
             for nb in Neighborhood::ALL {
                 if ui.radio(app.ca.neighborhood == nb, nb.name()).clicked() {
@@ -160,9 +204,23 @@ pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
                     .small()
                     .weak(),
             );
+        });
 
-            ui.add_space(10.0);
+    app.rules_open = open;
+}
 
+pub fn render_options_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
+    if !app.options_open {
+        return;
+    }
+
+    let mut open = app.options_open;
+    egui::Window::new("Options")
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(false)
+        .default_width(280.0)
+        .show(ctx, |ui| {
             // Performance
             ui.strong("Performance");
             ui.separator();
