@@ -1,7 +1,9 @@
 [package]
 name = "cyclic-ca"
-version = "0.1.0"
+version = "0.13.0"
 edition = "2021"
+description = "Cyclic Cellular Automata simulation"
+authors = ["pedawson"]
 
 [dependencies]
 eframe = { version = "0.29", default-features = false, features = [

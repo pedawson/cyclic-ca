@@ -2,6 +2,73 @@ use crate::app::CyclicCAApp;
 use crate::ca::{ColorScheme, Neighborhood, Pattern, Symmetry as CaSymmetry};
 use eframe::egui;
 
+pub fn render_about_window(app: &mut CyclicCAApp, ctx: &egui::Context) {
+    if !app.about_open {
+        return;
+    }
+
+    let mut open = app.about_open;
+    egui::Window::new("About Cyclic Cellular Automata")
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(false)
+        .default_width(300.0)
+        .show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(4.0);
+                ui.heading("Cyclic Cellular Automata");
+                ui.add_space(2.0);
+                ui.label(
+                    egui::RichText::new(concat!("Version ", env!("CARGO_PKG_VERSION")))
+                        .strong(),
+                );
+                ui.add_space(12.0);
+                ui.separator();
+                ui.add_space(8.0);
+
+                ui.label("A simulation of cyclic cellular automata where");
+                ui.label("each cell type consumes the previous type in a");
+                ui.label("repeating cycle, producing emergent wave patterns.");
+
+                ui.add_space(12.0);
+                ui.separator();
+                ui.add_space(8.0);
+
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("Built with:").strong());
+                    ui.label("Rust · eframe · egui");
+                });
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("Platform:").strong());
+                    ui.label("macOS · Linux · Windows · WASM");
+                });
+
+                ui.add_space(8.0);
+                ui.separator();
+                ui.add_space(8.0);
+
+                ui.label(
+                    egui::RichText::new("Controls")
+                        .strong(),
+                );
+                ui.add_space(4.0);
+                egui::Grid::new("controls_grid")
+                    .num_columns(2)
+                    .spacing([16.0, 4.0])
+                    .show(ui, |ui| {
+                        ui.label("Scroll");       ui.label("Zoom in/out"); ui.end_row();
+                        ui.label("Drag");         ui.label("Pan view"); ui.end_row();
+                        ui.label("P");            ui.label("Pause / Resume"); ui.end_row();
+                        ui.label("R");            ui.label("Restart"); ui.end_row();
+                    });
+
+                ui.add_space(8.0);
+            });
+        });
+
+    app.about_open = open;
+}
+
 pub fn render_grid_panel(app: &mut CyclicCAApp, ui: &mut egui::Ui) {
     egui::CollapsingHeader::new("Grid")
         .default_open(app.grid_panel_open)

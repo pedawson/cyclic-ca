@@ -44,6 +44,9 @@ pub struct CyclicCAApp {
     pub patterns_panel_open: bool,
     pub simulation_panel_open: bool,
 
+    // About window
+    pub about_open: bool,
+
     // Rules window
     pub rules_open: bool,
 
@@ -90,6 +93,7 @@ impl Default for CyclicCAApp {
             visual_panel_open: true,
             patterns_panel_open: true,
             simulation_panel_open: true,
+            about_open: false,
             rules_open: false,
             options_open: false,
             steps_per_frame: 1,
@@ -244,6 +248,9 @@ impl eframe::App for CyclicCAApp {
                     let opt_label = if self.options_open { "Options ☑" } else { "Options ☐" };
                     if ui.button(opt_label).clicked() {
                         self.options_open = !self.options_open;
+                    }
+                    if ui.button("About").clicked() {
+                        self.about_open = !self.about_open;
                     }
                 });
                 ui.separator();
@@ -407,6 +414,7 @@ impl eframe::App for CyclicCAApp {
             });
 
         // ── Floating windows ──────────────────────────────────────────────────
+        ui::render_about_window(self, ctx);
         ui::render_rules_window(self, ctx);
         ui::render_options_window(self, ctx);
         ui::render_presets_window(self, ctx);
