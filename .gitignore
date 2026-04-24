@@ -22,3 +22,6 @@ cyclic-ca/dist/
 
 # Claude Code local settings
 .claude/
+
+# Large archives
+*.zip
