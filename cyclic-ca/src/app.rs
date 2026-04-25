@@ -188,8 +188,6 @@ impl CyclicCAApp {
     }
 
     fn write_gif(&self, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-        use image::AnimationEncoder;
-
         let file = std::fs::File::create(path)?;
         let mut encoder = image::codecs::gif::GifEncoder::new(file);
         encoder.set_repeat(image::codecs::gif::Repeat::Infinite)?;
