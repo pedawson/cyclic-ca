@@ -1,6 +1,6 @@
 use rand::Rng;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ColorScheme {
     Rainbow,
     Ocean,
@@ -29,7 +29,7 @@ impl ColorScheme {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Neighborhood {
     VonNeumann,
     Moore,
@@ -52,7 +52,7 @@ impl Neighborhood {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Symmetry {
     None,
     Horizontal,
@@ -78,7 +78,7 @@ impl Symmetry {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Pattern {
     Random,
     Stripes,
@@ -111,18 +111,18 @@ pub struct CyclicCellularAutomata {
     pub width: usize,
     pub height: usize,
     pub num_types: usize,
-    pub grid: Vec<Vec<usize>>,
-    next_grid: Vec<Vec<usize>>,
+    pub grid: Vec<u8>,
+    next_grid: Vec<u8>,
     pub color_scheme: ColorScheme,
     colors: Vec<[u8; 3]>,
     pub neighborhood: Neighborhood,
     pub threshold: usize,
+    pixel_buf: Vec<egui::Color32>,
 }
 
 impl CyclicCellularAutomata {
     pub fn new(width: usize, height: usize, num_types: usize) -> Self {
-        let grid = vec![vec![0; width]; height];
-        let next_grid = vec![vec![0; width]; height];
+        let len = width * height;
         let color_scheme = ColorScheme::Rainbow;
         let colors = Self::generate_colors(num_types, color_scheme);
 
@@ -130,12 +130,13 @@ impl CyclicCellularAutomata {
             width,
             height,
             num_types,
-            grid,
-            next_grid,
+            grid: vec![0u8; len],
+            next_grid: vec![0u8; len],
             color_scheme,
             colors,
             neighborhood: Neighborhood::VonNeumann,
             threshold: 1,
+            pixel_buf: vec![egui::Color32::BLACK; len],
         };
         ca.apply_pattern(Pattern::Random);
         ca
@@ -145,11 +146,12 @@ impl CyclicCellularAutomata {
         self.width = width;
         self.height = height;
         self.num_types = num_types;
-        self.grid = vec![vec![0; width]; height];
-        self.next_grid = vec![vec![0; width]; height];
+        let len = width * height;
+        self.grid = vec![0u8; len];
+        self.next_grid = vec![0u8; len];
+        self.pixel_buf = vec![egui::Color32::BLACK; len];
         self.colors = Self::generate_colors(num_types, self.color_scheme);
         self.apply_pattern(Pattern::Random);
-        // neighborhood and threshold are preserved
     }
 
     pub fn set_color_scheme(&mut self, scheme: ColorScheme) {
@@ -230,7 +232,7 @@ impl CyclicCellularAutomata {
 
         for y in 0..self.height {
             for x in 0..self.width {
-                self.grid[y][x] = match pattern {
+                let val = match pattern {
                     Pattern::Random => rng.gen_range(0..self.num_types),
                     Pattern::Stripes => (x / 10) % self.num_types,
                     Pattern::Checkerboard => ((x / 10) + (y / 10)) % self.num_types,
@@ -248,6 +250,7 @@ impl CyclicCellularAutomata {
                         ((dist / max_dist) * self.num_types as f32) as usize % self.num_types
                     }
                 };
+                self.grid[y * self.width + x] = val as u8;
             }
         }
     }
@@ -257,79 +260,78 @@ impl CyclicCellularAutomata {
     }
 
     pub fn clear(&mut self) {
-        for row in &mut self.grid {
-            for cell in row {
-                *cell = 0;
-            }
-        }
+        self.grid.fill(0);
     }
 
-    fn get_neighbors(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
+    fn get_neighbors(&self, x: usize, y: usize) -> ([(usize, usize); 12], usize) {
         let w = self.width as i32;
         let h = self.height as i32;
         let xi = x as i32;
         let yi = y as i32;
+        let mut buf = [(0usize, 0usize); 12];
 
         match self.neighborhood {
-            Neighborhood::VonNeumann => vec![
-                ((xi - 1).rem_euclid(w) as usize, y),
-                ((xi + 1).rem_euclid(w) as usize, y),
-                (x, (yi - 1).rem_euclid(h) as usize),
-                (x, (yi + 1).rem_euclid(h) as usize),
-            ],
+            Neighborhood::VonNeumann => {
+                buf[0] = ((xi - 1).rem_euclid(w) as usize, y);
+                buf[1] = ((xi + 1).rem_euclid(w) as usize, y);
+                buf[2] = (x, (yi - 1).rem_euclid(h) as usize);
+                buf[3] = (x, (yi + 1).rem_euclid(h) as usize);
+                (buf, 4)
+            }
             Neighborhood::Moore => {
-                let mut neighbors = Vec::with_capacity(8);
+                let mut len = 0;
                 for dy in -1i32..=1 {
                     for dx in -1i32..=1 {
                         if dx == 0 && dy == 0 {
                             continue;
                         }
-                        neighbors.push((
+                        buf[len] = (
                             (xi + dx).rem_euclid(w) as usize,
                             (yi + dy).rem_euclid(h) as usize,
-                        ));
+                        );
+                        len += 1;
                     }
                 }
-                neighbors
+                (buf, len)
             }
             Neighborhood::Extended => {
-                // Cardinal directions at distance 1 and 2, plus diagonals at distance 1 (12 total)
                 let offsets: [(i32, i32); 12] = [
                     (-1, 0), (1, 0), (0, -1), (0, 1),
                     (-2, 0), (2, 0), (0, -2), (0, 2),
                     (-1, -1), (1, -1), (-1, 1), (1, 1),
                 ];
-                offsets
-                    .iter()
-                    .map(|&(dx, dy)| {
-                        (
-                            (xi + dx).rem_euclid(w) as usize,
-                            (yi + dy).rem_euclid(h) as usize,
-                        )
-                    })
-                    .collect()
+                for (i, &(dx, dy)) in offsets.iter().enumerate() {
+                    buf[i] = (
+                        (xi + dx).rem_euclid(w) as usize,
+                        (yi + dy).rem_euclid(h) as usize,
+                    );
+                }
+                (buf, 12)
             }
         }
     }
 
     pub fn update(&mut self) {
-        let prey_types: Vec<usize> = (0..self.num_types)
-            .map(|i| (i + self.num_types - 1) % self.num_types)
-            .collect();
+        let mut prey_types = [0u8; 25];
+        for i in 0..self.num_types {
+            prey_types[i] = ((i + self.num_types - 1) % self.num_types) as u8;
+        }
 
         for y in 0..self.height {
             for x in 0..self.width {
-                let current_type = self.grid[y][x];
-                let prey_type = prey_types[current_type];
-                let mut prey_count = 0;
+                let idx = y * self.width + x;
+                let current_type = self.grid[idx];
+                let prey_type = prey_types[current_type as usize];
+                let mut prey_count = 0usize;
 
-                for (nx, ny) in self.get_neighbors(x, y) {
-                    if self.grid[ny][nx] == prey_type {
+                let (neighbors, nlen) = self.get_neighbors(x, y);
+                for &(nx, ny) in &neighbors[..nlen] {
+                    if self.grid[ny * self.width + nx] == prey_type {
                         prey_count += 1;
                     }
                 }
 
-                self.next_grid[y][x] = if prey_count >= self.threshold {
+                self.next_grid[idx] = if prey_count >= self.threshold {
                     prey_type
                 } else {
                     current_type
@@ -342,31 +344,32 @@ impl CyclicCellularAutomata {
 
     /// Mirror the grid according to the chosen symmetry mode.
     pub fn apply_symmetry(&mut self, sym: Symmetry) {
+        let w = self.width;
         match sym {
             Symmetry::None => {}
             Symmetry::Horizontal => {
                 for y in 0..self.height {
-                    for x in 0..self.width / 2 {
-                        let val = self.grid[y][x];
-                        self.grid[y][self.width - 1 - x] = val;
+                    for x in 0..w / 2 {
+                        let val = self.grid[y * w + x];
+                        self.grid[y * w + (w - 1 - x)] = val;
                     }
                 }
             }
             Symmetry::Vertical => {
                 for y in 0..self.height / 2 {
-                    for x in 0..self.width {
-                        let val = self.grid[y][x];
-                        self.grid[self.height - 1 - y][x] = val;
+                    for x in 0..w {
+                        let val = self.grid[y * w + x];
+                        self.grid[(self.height - 1 - y) * w + x] = val;
                     }
                 }
             }
             Symmetry::FourFold => {
                 for y in 0..self.height / 2 {
-                    for x in 0..self.width / 2 {
-                        let val = self.grid[y][x];
-                        self.grid[y][self.width - 1 - x] = val;
-                        self.grid[self.height - 1 - y][x] = val;
-                        self.grid[self.height - 1 - y][self.width - 1 - x] = val;
+                    for x in 0..w / 2 {
+                        let val = self.grid[y * w + x];
+                        self.grid[y * w + (w - 1 - x)] = val;
+                        self.grid[(self.height - 1 - y) * w + x] = val;
+                        self.grid[(self.height - 1 - y) * w + (w - 1 - x)] = val;
                     }
                 }
             }
@@ -377,30 +380,42 @@ impl CyclicCellularAutomata {
     pub fn to_rgb_bytes(&self) -> Vec<u8> {
         self.grid
             .iter()
-            .flat_map(|row| {
-                row.iter().flat_map(|&cell| {
-                    let [r, g, b] = self.colors[cell];
-                    [r, g, b]
-                })
+            .flat_map(|&cell| {
+                let [r, g, b] = self.colors[cell as usize];
+                [r, g, b]
             })
             .collect()
     }
 
-    pub fn to_color_image(&self) -> egui::ColorImage {
-        let pixels: Vec<egui::Color32> = self
-            .grid
-            .iter()
-            .flat_map(|row| {
-                row.iter().map(|&cell| {
-                    let [r, g, b] = self.colors[cell];
-                    egui::Color32::from_rgb(r, g, b)
-                })
-            })
-            .collect();
+    pub fn to_color_image(&mut self) -> egui::ColorImage {
+        for (i, &cell) in self.grid.iter().enumerate() {
+            let [r, g, b] = self.colors[cell as usize];
+            self.pixel_buf[i] = egui::Color32::from_rgb(r, g, b);
+        }
 
         egui::ColorImage {
             size: [self.width, self.height],
-            pixels,
+            pixels: self.pixel_buf.clone(),
         }
+    }
+
+    pub fn set_cell(&mut self, x: usize, y: usize, cell_type: u8) {
+        if x < self.width && y < self.height {
+            self.grid[y * self.width + x] = cell_type;
+        }
+    }
+
+    pub fn population_counts(&self) -> Vec<usize> {
+        let mut counts = vec![0usize; self.num_types];
+        for &cell in &self.grid {
+            if (cell as usize) < self.num_types {
+                counts[cell as usize] += 1;
+            }
+        }
+        counts
+    }
+
+    pub fn get_color(&self, idx: usize) -> [u8; 3] {
+        self.colors.get(idx).copied().unwrap_or([128, 128, 128])
     }
 }
